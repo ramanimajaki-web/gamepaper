@@ -2,705 +2,2750 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Захват Мира: Война на Тетрадном Листе</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Война в Тетради (Paper RPG)</title>
+  <!-- Google Fonts Neucha & Caveat -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Neucha&display=swap" rel="stylesheet">
+  <!-- PeerJS for direct WebRTC p2p multiplayer on static GitHub Pages -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
   <style>
+    :root {
+      --ink-blue: #1c3d72;
+      --pencil-gray: #3a3a3a;
+      --margin-red: #d94343;
+      --paper-bg: #f9fbfd;
+      --grid-line: #cde0f5;
+      --sticker-bg: #fffdf2;
+      --sticker-shadow: 2px 4px 10px rgba(40, 40, 50, 0.18);
+      --font-doodle: 'Neucha', 'Caveat', cursive, sans-serif;
+      --font-accent: 'Caveat', cursive, sans-serif;
+    }
+
     * {
       box-sizing: border-box;
       user-select: none;
+      -webkit-user-select: none;
       margin: 0;
       padding: 0;
     }
 
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #eef2f7;
-      color: #2c3e50;
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--font-doodle);
+      background-color: var(--paper-bg);
+      color: var(--pencil-gray);
+    }
+
+    /* Seamless Notebook Grid Background */
+    .notebook-bg {
+      background-color: var(--paper-bg);
+      background-image: 
+        linear-gradient(90deg, rgba(205, 224, 245, 0.7) 1px, transparent 1px),
+        linear-gradient(rgba(205, 224, 245, 0.7) 1px, transparent 1px);
+      background-size: 20px 20px;
+      position: relative;
+    }
+
+    /* Red notebook margin on the left */
+    .notebook-margin-line {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 75px;
+      width: 2px;
+      background: var(--margin-red);
+      opacity: 0.65;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Sticker effect */
+    .sticker {
+      background: var(--sticker-bg);
+      border: 1px solid #d5ceb6;
+      border-radius: 3px 4px 6px 3px;
+      box-shadow: var(--sticker-shadow);
+      position: relative;
+      transform: rotate(-0.5deg);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .sticker:nth-child(even) {
+      transform: rotate(0.8deg);
+    }
+    .sticker:hover {
+      box-shadow: 3px 6px 14px rgba(40,40,50,0.22);
+    }
+
+    /* Hand-drawn button style */
+    .doodle-btn {
+      font-family: var(--font-doodle);
+      font-size: 1.15rem;
+      background: #ffffff;
+      color: var(--ink-blue);
+      border: 2px solid var(--ink-blue);
+      border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+      padding: 8px 16px;
+      cursor: pointer;
+      box-shadow: 2px 3px 0px rgba(28, 61, 114, 0.3);
+      transition: all 0.1s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .doodle-btn:hover {
+      background: #f0f6ff;
+      transform: translateY(-1px) scale(1.02);
+      box-shadow: 2px 4px 0px rgba(28, 61, 114, 0.4);
+    }
+    .doodle-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0px 1px 0px rgba(28, 61, 114, 0.3);
+    }
+    .doodle-btn.primary {
+      background: var(--ink-blue);
+      color: #fff;
+      border-color: #12284c;
+    }
+    .doodle-btn.primary:hover {
+      background: #254d8f;
+    }
+    .doodle-btn.danger {
+      border-color: var(--margin-red);
+      color: var(--margin-red);
+    }
+    .doodle-btn.danger:hover {
+      background: #fff3f3;
+    }
+    .doodle-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    /* Hand-drawn inputs & selects */
+    .doodle-input, .doodle-select {
+      font-family: var(--font-doodle);
+      font-size: 1.1rem;
+      padding: 6px 10px;
+      border: 2px solid #555;
+      border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+      background: #fff;
+      color: #222;
+      outline: none;
+    }
+    .doodle-input:focus, .doodle-select:focus {
+      border-color: var(--ink-blue);
+    }
+
+    /* App Screens */
+    #screen-lobby, #screen-game {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* LOBBY SCREEN */
+    #screen-lobby {
+      z-index: 10;
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-height: 100vh;
-      overflow-x: hidden;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
     }
-
-    /* Верхняя панель */
-    header {
+    .lobby-card {
+      max-width: 680px;
       width: 100%;
-      max-width: 1100px;
-      padding: 12px 20px;
-      background: #ffffff;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 15px;
-      border-radius: 0 0 16px 16px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      padding: 30px;
+      background: #fffdf8;
+      border: 2px solid #333;
+      border-radius: 4px;
+      box-shadow: 4px 6px 20px rgba(0,0,0,0.15);
+      position: relative;
     }
-
-    .title-area h1 {
-      font-size: 20px;
+    .lobby-tape {
+      width: 120px;
+      height: 30px;
+      background: rgba(255, 235, 140, 0.65);
+      position: absolute;
+      top: -14px;
+      left: calc(50% - 60px);
+      transform: rotate(-1.5deg);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .title-doodle {
+      font-family: var(--font-accent);
+      font-size: 3rem;
+      text-align: center;
+      color: var(--ink-blue);
+      line-height: 1.1;
+      margin-bottom: 6px;
+      text-shadow: 1px 1px 0px rgba(0,0,0,0.1);
+    }
+    .subtitle-doodle {
+      text-align: center;
+      font-size: 1.2rem;
+      color: #666;
+      margin-bottom: 24px;
+    }
+    .lobby-section {
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px dashed #b5c7dc;
+    }
+    .lobby-section-title {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--pencil-gray);
+      margin-bottom: 10px;
       display: flex;
       align-items: center;
       gap: 8px;
-      color: #1a365d;
     }
-
-    .stats {
+    .mode-selector {
       display: flex;
-      gap: 18px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .mode-tab {
+      flex: 1;
+      min-width: 140px;
+      text-align: center;
+      padding: 10px 14px;
+      border: 2px dashed #777;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #fff;
+      font-size: 1.1rem;
+      transition: all 0.2s;
+    }
+    .mode-tab.active {
+      border: 2px solid var(--ink-blue);
+      background: #ebf3ff;
+      font-weight: bold;
+      color: var(--ink-blue);
+      box-shadow: 2px 3px 0 rgba(28,61,114,0.2);
+    }
+    .slots-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 600px) {
+      .slots-grid { grid-template-columns: 1fr; }
+    }
+    .slot-card {
+      padding: 10px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .slot-header {
+      display: flex;
       align-items: center;
-      font-weight: 600;
-      font-size: 15px;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .flag-picker {
+      font-size: 1.6rem;
+      cursor: pointer;
+      padding: 2px 6px;
+      background: #f4f4f4;
+      border-radius: 4px;
     }
 
-    .stat-badge {
-      background: #f1f5f9;
-      padding: 6px 14px;
-      border-radius: 10px;
-      border: 1px solid #e2e8f0;
+    /* GAME SCREEN */
+    #screen-game {
+      display: none;
+    }
+    /* Top Bar HUD */
+    .top-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.95);
+      border-bottom: 2px solid #555;
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 20;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
-
-    .stat-val {
-      color: #2563eb;
-      font-size: 17px;
-    }
-
-    .controls {
+    .turn-indicator {
       display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.35rem;
+      font-weight: bold;
+    }
+    .turn-color-badge {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid #222;
+      display: inline-block;
+    }
+    .stats-strip {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 1.15rem;
+    }
+    .stat-pill {
+      background: #fffde8;
+      border: 1.5px solid #888;
+      padding: 4px 10px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* Canvas Map Area */
+    #viewport-container {
+      position: absolute;
+      top: 60px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      cursor: grab;
+    }
+    #viewport-container:active {
+      cursor: grabbing;
+    }
+    #game-canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: 0 0;
+    }
+
+    /* Floating Hand-Drawn Action Cards & Controls */
+    .floating-ui-layer {
+      position: absolute;
+      top: 70px;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      pointer-events: none;
+      z-index: 15;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .floating-panel-left {
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 320px;
+      width: 100%;
+      max-height: calc(100vh - 100px);
+      overflow-y: auto;
+      padding-right: 6px;
+    }
+    .floating-panel-right {
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
       gap: 10px;
     }
 
-    button {
-      background: #2563eb;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      font-weight: 600;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: 14px;
-      box-shadow: 0 2px 6px rgba(37,99,235,0.25);
-    }
-
-    button:hover {
-      background: #1d4ed8;
-      transform: translateY(-1px);
-    }
-
-    button.secondary {
-      background: #64748b;
-      box-shadow: 0 2px 6px rgba(100,116,139,0.25);
-    }
-    button.secondary:hover {
-      background: #475569;
-    }
-
-    /* Контейнер поля: Тетрадный двойной лист */
-    .sheet-wrapper {
-      margin: 20px auto;
-      padding: 10px;
-      max-width: 98vw;
-      overflow: auto;
-      display: flex;
-      justify-content: center;
-    }
-
-    .notebook-sheet {
-      position: relative;
-      background-color: #fafbfc;
-      /* Тетрадная клетка */
-      background-image: 
-        linear-gradient(to right, rgba(99, 133, 175, 0.2) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(99, 133, 175, 0.2) 1px, transparent 1px);
-      background-size: 26px 26px;
-      border: 2px solid #b0c4de;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.12), inset 0 0 15px rgba(0,0,0,0.03);
-      border-radius: 8px;
-      padding: 4px;
-    }
-
-    /* Линия сгиба двойного листа по центру */
-    .notebook-sheet::after {
-      content: "";
+    /* Sticky Action Bar (Colonize, Units, Builds) */
+    .action-dock {
+      pointer-events: auto;
       position: absolute;
-      top: 0;
-      bottom: 0;
+      bottom: 16px;
       left: 50%;
-      width: 4px;
       transform: translateX(-50%);
-      background: linear-gradient(to right, rgba(0,0,0,0.06), rgba(0,0,0,0.18), rgba(0,0,0,0.06));
-      pointer-events: none;
-      box-shadow: 0 0 6px rgba(0,0,0,0.15);
+      background: #fffdf5;
+      border: 2px solid #333;
+      border-radius: 16px;
+      padding: 8px 16px;
+      display: flex;
+      gap: 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+      z-index: 18;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 95vw;
     }
 
-    /* Игровая сетка */
-    #grid {
-      display: grid;
-      gap: 1px;
-      background: rgba(180, 195, 215, 0.4);
+    /* Zoom Mini Bar */
+    .zoom-dock {
+      position: absolute;
+      top: 70px;
+      right: 16px;
+      z-index: 18;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
-
-    .cell {
-      width: 25px;
-      height: 25px;
+    .zoom-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid #444;
+      font-size: 1.3rem;
+      font-weight: bold;
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
-      font-weight: bold;
-      cursor: pointer;
-      position: relative;
-      transition: background 0.15s, transform 0.1s;
-      border-radius: 2px;
-      color: #333;
+      box-shadow: 1px 2px 4px rgba(0,0,0,0.15);
     }
+    .zoom-btn:hover { background: #f0f0f0; }
 
-    .cell:hover {
-      filter: brightness(0.9);
-      transform: scale(1.08);
-      z-index: 10;
+    /* Nation & Religion Sticker Cards */
+    .info-sticker {
+      padding: 14px;
+      font-size: 1.05rem;
     }
-
-    /* Фракции / Цвета */
-    .cell.neutral {
-      background: #fdfefe;
-      color: #94a3b8;
-    }
-    .cell.neutral:hover {
-      background: #e2e8f0;
-    }
-
-    /* Игрок (Синие) */
-    .cell.p-player {
-      background: #3b82f6;
-      color: #ffffff;
-      box-shadow: inset 0 0 4px rgba(0,0,0,0.2);
-    }
-
-    /* Враги */
-    .cell.p-red {
-      background: #ef4444;
-      color: #ffffff;
-    }
-    .cell.p-green {
-      background: #10b981;
-      color: #ffffff;
-    }
-    .cell.p-yellow {
-      background: #f59e0b;
-      color: #ffffff;
-    }
-
-    /* Подсветка доступных для атаки клеток */
-    .cell.can-attack {
-      outline: 2px dashed #e11d48;
-      animation: pulse 1s infinite alternate;
-      cursor: crosshair;
-    }
-
-    @keyframes pulse {
-      from { transform: scale(0.97); }
-      to { transform: scale(1.05); }
-    }
-
-    /* Звезда столицы */
-    .capital-star {
-      font-size: 15px;
-      filter: drop-shadow(0 0 2px rgba(0,0,0,0.6));
-    }
-
-    /* Лог событий */
-    .log-box {
-      width: 100%;
-      max-width: 1100px;
-      background: white;
-      border-radius: 12px;
-      padding: 12px 20px;
-      margin-bottom: 25px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      border: 1px solid #e2e8f0;
-    }
-    .log-box h3 {
-      font-size: 14px;
-      color: #64748b;
-      margin-bottom: 8px;
-    }
-    .log-messages {
-      font-size: 13px;
+    .info-sticker h3 {
+      font-family: var(--font-accent);
+      font-size: 1.6rem;
+      color: var(--ink-blue);
+      margin-bottom: 6px;
+      border-bottom: 1px dashed #aaa;
+      padding-bottom: 4px;
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      max-height: 80px;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sticker-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 4px 0;
+    }
+    .sticker-badge {
+      font-size: 0.85rem;
+      background: #eee;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    /* Modals (Duel, Build Menu, Logs) */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(20, 25, 35, 0.45);
+      backdrop-filter: blur(2px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-doodle {
+      background: #fffef7;
+      border: 3px solid #222;
+      border-radius: 8px;
+      box-shadow: 6px 10px 25px rgba(0,0,0,0.3);
+      max-width: 580px;
+      width: 100%;
+      padding: 26px;
+      position: relative;
+      max-height: 90vh;
       overflow-y: auto;
     }
-    .log-msg {
-      color: #334155;
-    }
-    .log-msg.important {
-      font-weight: bold;
-      color: #dc2626;
-    }
-    .log-msg.victory {
-      font-weight: bold;
-      color: #16a34a;
+    .modal-title {
+      font-family: var(--font-accent);
+      font-size: 2.2rem;
+      color: var(--ink-blue);
+      text-align: center;
+      margin-bottom: 16px;
+      border-bottom: 2px dashed #999;
+      padding-bottom: 6px;
     }
 
-    /* Инструкция */
-    .hint-bar {
-      font-size: 13px;
-      color: #475569;
-      background: #e0f2fe;
-      border: 1px solid #bae6fd;
-      padding: 8px 16px;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      max-width: 1100px;
-      width: 100%;
+    /* DUEL COMBAT MODAL & DICE */
+    .combat-arena {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      margin: 20px 0;
+      gap: 15px;
+    }
+    .combat-fighter {
+      flex: 1;
       text-align: center;
+      padding: 12px;
+      background: #fff;
+      border: 2px solid #555;
+      border-radius: 8px;
+    }
+    .fighter-title {
+      font-size: 1.3rem;
+      font-weight: bold;
+    }
+    .health-bar-container {
+      width: 100%;
+      height: 14px;
+      background: #e0e0e0;
+      border: 1.5px solid #444;
+      border-radius: 7px;
+      margin: 8px 0;
+      overflow: hidden;
+    }
+    .health-bar-fill {
+      height: 100%;
+      background: #38b000;
+      transition: width 0.3s ease;
+    }
+
+    /* D6 Dice Doodle */
+    .dice-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .dice-d6 {
+      width: 64px;
+      height: 64px;
+      background: #ffffff;
+      border: 3px solid #111;
+      border-radius: 12px;
+      box-shadow: 3px 4px 0px rgba(0,0,0,0.2);
+      display: grid;
+      grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+      padding: 6px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .dice-pip {
+      background: #222;
+      border-radius: 50%;
+      width: 10px;
+      height: 10px;
+      margin: auto;
+    }
+    .dice-rolling {
+      animation: diceRoll 0.6s infinite ease-in-out;
+    }
+    @keyframes diceRoll {
+      0% { transform: rotate(0deg) scale(1.1); }
+      25% { transform: rotate(90deg) scale(0.9); }
+      50% { transform: rotate(180deg) scale(1.1); }
+      75% { transform: rotate(270deg) scale(0.95); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+
+    /* Notification banner */
+    #game-toast {
+      position: fixed;
+      top: 75px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fffde0;
+      border: 2px solid #444;
+      border-radius: 8px;
+      padding: 8px 20px;
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: var(--ink-blue);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    #game-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(5px);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.05);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #bbb;
+      border-radius: 3px;
     }
   </style>
 </head>
-<body>
+<body class="notebook-bg">
+  <div class="notebook-margin-line"></div>
+  <div id="game-toast">Уведомление</div>
 
-  <header>
-    <div class="title-area">
-      <h1>🗺️ Война на Тетрадном Листе</h1>
-    </div>
+  <!-- ================= LOBBY SCREEN ================= -->
+  <div id="screen-lobby">
+    <div class="lobby-card sticker">
+      <div class="lobby-tape"></div>
+      <h1 class="title-doodle">⚔️ Война в Тетради ⚔️</h1>
+      <p class="subtitle-doodle">Пошаговая стратегия в клетку на переменке</p>
 
-    <div class="stats">
-      <div class="stat-badge">
-        <span>⚔️ Армия:</span>
-        <span class="stat-val" id="army-val">50</span>
+      <!-- Mode selection -->
+      <div class="lobby-section">
+        <div class="lobby-section-title">1. Режим игры</div>
+        <div class="mode-selector">
+          <div class="mode-tab active" data-mode="single" onclick="setLobbyMode('single')">
+            🤖 Одиночная игра<br><small style="color:#666">против ИИ</small>
+          </div>
+          <div class="mode-tab" data-mode="hotseat" onclick="setLobbyMode('hotseat')">
+            👥 Hotseat<br><small style="color:#666">За одним экраном</small>
+          </div>
+          <div class="mode-tab" data-mode="network" onclick="setLobbyMode('network')">
+            🌐 WebRTC Сеть<br><small style="color:#666">Без сервера (P2P)</small>
+          </div>
+        </div>
+
+        <!-- Network subpanel -->
+        <div id="net-panel" style="display:none; margin-top:14px; background:#f0f5ff; padding:12px; border:1px dashed var(--ink-blue); border-radius:6px;">
+          <div style="font-weight:bold; margin-bottom:6px;">Сетевая игра WebRTC (PeerJS):</div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+            <button class="doodle-btn" onclick="initHostNetwork()">Создать комнату (Хост)</button>
+            <span>Ваш Room ID: <strong id="my-peer-id" style="color:var(--ink-blue);">[нажмите создать]</strong></span>
+            <button class="doodle-btn" style="padding:4px 8px; font-size:0.9rem;" onclick="copyRoomId()">Копировать</button>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="join-peer-id" class="doodle-input" placeholder="Введите Room ID хоста" style="width:200px;">
+            <button class="doodle-btn primary" onclick="joinNetworkRoom()">Подключиться к игре</button>
+          </div>
+          <div id="net-status" style="margin-top:6px; font-size:0.95rem; color:#d94343;"></div>
+        </div>
       </div>
-      <div class="stat-badge">
-        <span>📈 Доход:</span>
-        <span class="stat-val" id="income-val">+25/сек</span>
-      </div>
-      <div class="stat-badge">
-        <span>🏰 Территория:</span>
-        <span class="stat-val" id="land-val">25</span>
-      </div>
-    </div>
 
-    <div class="controls">
-      <button id="toggle-war">⏸️ Пауза</button>
-      <button class="secondary" id="restart-btn">🔄 Заново</button>
-    </div>
-  </header>
+      <!-- Sheet Size -->
+      <div class="lobby-section">
+        <div class="lobby-section-title">2. Размер тетрадного листа</div>
+        <div style="display:flex; gap:16px; align-items:center;">
+          <label style="cursor:pointer; display:flex; align-items:center; gap:4px;">
+            <input type="radio" name="map-size" value="25" checked> Маленький (25×25)
+          </label>
+          <label style="cursor:pointer; display:flex; align-items:center; gap:4px;">
+            <input type="radio" name="map-size" value="35"> Средний (35×35)
+          </label>
+          <label style="cursor:pointer; display:flex; align-items:center; gap:4px;">
+            <input type="radio" name="map-size" value="50"> Большой (50×50)
+          </label>
+        </div>
+      </div>
 
-  <div class="sheet-wrapper">
-    <div class="notebook-sheet">
-      <div id="grid"></div>
+      <!-- Player Slots -->
+      <div class="lobby-section">
+        <div class="lobby-section-title">3. Государства (2–4 державы)</div>
+        <div class="slots-grid" id="slots-container">
+          <!-- Dynamically generated 4 slots -->
+        </div>
+      </div>
+
+      <!-- Start button -->
+      <div style="text-align:center; margin-top:20px;">
+        <button class="doodle-btn primary" style="font-size:1.4rem; padding:10px 32px;" onclick="startGameFromLobby()">
+          ✏️ Начать партию в тетради!
+        </button>
+      </div>
     </div>
   </div>
 
-  <div class="hint-bar">
-    💡 <b>Правила войны:</b> Вы — <b style="color:#2563eb;">Синяя держава</b>. Ваша столица (5x5) со звездой ⭐ в центре. Кликайте по соседним клеткам врагов или пустых земель, чтобы отправить армию на захват! Захватите вражескую ⭐ столицу, чтобы подчинить всю страну!
+  <!-- ================= GAMEPLAY SCREEN ================= -->
+  <div id="screen-game">
+    <!-- Top HUD Strip -->
+    <div class="top-bar">
+      <div class="turn-indicator">
+        <span class="turn-color-badge" id="current-player-badge"></span>
+        <span id="current-player-name">Империя 1</span>
+        <span style="font-size:1.05rem; color:#666;" id="turn-round-counter">(Ход: 1)</span>
+      </div>
+
+      <div class="stats-strip">
+        <div class="stat-pill" title="Казна и баланс дохода">
+          🪙 <span id="hud-gold">25</span> (<span id="hud-balance">+5</span>/ход)
+        </div>
+        <div class="stat-pill" title="Население">
+          👥 <span id="hud-pop">25</span>
+        </div>
+        <div class="stat-pill" title="Фермы (обеспечивают едой)">
+          🌾 <span id="hud-farms">0/2</span>
+        </div>
+        <div class="stat-pill" title="Заводы (снабжают товарами)">
+          🏭 <span id="hud-factories">0/2</span>
+        </div>
+        <div class="stat-pill" title="Уровень науки">
+          🔬 <span id="hud-science">Ур. 1</span>
+        </div>
+      </div>
+
+      <div>
+        <button class="doodle-btn primary" id="btn-end-turn" onclick="onEndTurnClick()">
+          Передать ход ⏭️
+        </button>
+      </div>
+    </div>
+
+    <!-- Zoom Mini Bar -->
+    <div class="zoom-dock">
+      <button class="zoom-btn" onclick="zoomView(1.2)" title="Приблизить">+</button>
+      <button class="zoom-btn" onclick="zoomView(0.8)" title="Отдалить">−</button>
+      <button class="zoom-btn" onclick="resetView()" title="Сброс масштаба">⟲</button>
+      <button class="zoom-btn" onclick="toggleSound()" id="sound-btn" title="Вкл/Выкл звук">🔊</button>
+    </div>
+
+    <!-- Zoomable / Pannable Canvas Container -->
+    <div id="viewport-container">
+      <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- Left Floating Info Stickers -->
+    <div class="floating-ui-layer">
+      <div class="floating-panel-left">
+        <!-- Nation Sticker -->
+        <div class="sticker info-sticker" id="nation-sticker">
+          <h3>
+            <span><span id="stk-flag">🚩</span> <span id="stk-name">Держава</span></span>
+            <span class="sticker-badge" id="stk-status">Жива</span>
+          </h3>
+          <div class="sticker-row"><span>Форма правления:</span> <b>Монархия</b></div>
+          <div class="sticker-row"><span>Культура:</span> <b>Тетрадная</b></div>
+          <div class="sticker-row"><span>Территория:</span> <b id="stk-cells">25 клеток</b></div>
+          <div class="sticker-row"><span>Казарма / Крепость:</span> <b id="stk-mil-lvl">0 ⚔️ / 0 🛡️</b></div>
+          <div class="sticker-row"><span>Армий под знамёнами:</span> <b id="stk-army-count">0</b></div>
+        </div>
+
+        <!-- Religion Sticker -->
+        <div class="sticker info-sticker" id="religion-sticker">
+          <h3>
+            <span>☀️ <span id="stk-rel-name">Культ Солнца</span></span>
+            <span class="sticker-badge" id="stk-rel-nature">Прозелитизм</span>
+          </h3>
+          <div class="sticker-row"><span>Авторитет веры:</span> <b id="stk-rel-auth">100 / 100</b></div>
+          <div class="sticker-row"><span>Число адептов:</span> <b id="stk-rel-followers">25</b></div>
+          <div class="sticker-row"><span>Храмов:</span> <b id="stk-rel-temples">0</b></div>
+          <div class="sticker-row"><span>Догматы:</span> <i>«Орден Защитников Тетради»</i></div>
+          <button class="doodle-btn" style="width:100%; margin-top:6px; font-size:0.95rem;" onclick="openOrderRecruit()">
+            ⚔️ Призвать дружину Ордена (15 веры)
+          </button>
+        </div>
+      </div>
+
+      <!-- Action dock at the bottom -->
+      <div class="action-dock">
+        <button class="doodle-btn" id="btn-colonize" onclick="toggleMode('colonize')">
+          📐 Колонизация (3×3) [10 🪙]
+        </button>
+        <button class="doodle-btn" id="btn-build" onclick="toggleMode('build')">
+          🏗️ Постройки
+        </button>
+        <button class="doodle-btn" id="btn-recruit" onclick="recruitUnit()">
+          🛡️ Нанять солдата [12 🪙]
+        </button>
+        <button class="doodle-btn" id="btn-recruit-general" onclick="recruitGeneral()">
+          ⭐ Нанять генерала [20 🪙]
+        </button>
+      </div>
+    </div>
   </div>
 
-  <div class="log-box">
-    <h3>Хроники сражений:</h3>
-    <div class="log-messages" id="logs"></div>
+  <!-- ================= BUILD MODAL ================= -->
+  <div id="modal-build" class="modal-backdrop" style="display:none;">
+    <div class="modal-doodle sticker">
+      <h2 class="modal-title">🏗️ Возведение постройки на клетке</h2>
+      <p style="text-align:center; margin-bottom:12px; color:#555;">
+        Выберите сооружение для выбранной свободной клетки вашей державы:
+      </p>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div class="slot-card sticker" style="cursor:pointer;" onclick="selectBuildingToPlace('farm')">
+          <div style="font-weight:bold; font-size:1.15rem;">🌾 Ферма (8 🪙)</div>
+          <div style="font-size:0.95rem; color:#555;">Кормит до 10 клеток населения. Предотвращает голод. (Штриховка)</div>
+        </div>
+
+        <div class="slot-card sticker" style="cursor:pointer;" onclick="selectBuildingToPlace('factory')">
+          <div style="font-weight:bold; font-size:1.15rem;">🏭 Завод (10 🪙)</div>
+          <div style="font-size:0.95rem; color:#555;">Снабжает товарами 10 клеток населения. Поддерживает казну. (Трубы)</div>
+        </div>
+
+        <div class="slot-card sticker" style="cursor:pointer;" onclick="selectBuildingToPlace('lab')">
+          <div style="font-weight:bold; font-size:1.15rem;">🔬 Лаборатория (15 🪙)</div>
+          <div style="font-size:0.95rem; color:#555;">Повышает Науку (1-6). Улучшает атаку, броню и уворот солдат! (Колба)</div>
+        </div>
+
+        <div class="slot-card sticker" style="cursor:pointer;" onclick="selectBuildingToPlace('temple')">
+          <div style="font-weight:bold; font-size:1.15rem;">☀️ Храм Солнца (12 🪙)</div>
+          <div style="font-size:0.95rem; color:#555;">+10 авторитета веры за ход. Защищает от раскола. (Солнце)</div>
+        </div>
+
+        <div class="slot-card sticker" style="cursor:pointer;" onclick="selectBuildingToPlace('barracks')">
+          <div style="font-weight:bold; font-size:1.15rem;">⛺ Казарма (12 🪙)</div>
+          <div style="font-size:0.95rem; color:#555;">+1 к уровню атаки державы. Необходима для найма солдат. (Меч)</div>
+        </div>
+
+        <div class="slot-card sticker" style="cursor:pointer;" onclick="selectBuildingToPlace('fortress')">
+          <div style="font-weight:bold; font-size:1.15rem;">🏰 Крепость (14 🪙)</div>
+          <div style="font-size:0.95rem; color:#555;">+1 к защите державы. Необходима для найма солдат. (Башня)</div>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:18px;">
+        <button class="doodle-btn danger" onclick="closeBuildModal()">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= COMBAT DUEL MODAL ================= -->
+  <div id="modal-combat" class="modal-backdrop" style="display:none;">
+    <div class="modal-doodle sticker">
+      <h2 class="modal-title">⚔️ Сражение на страницах тетради ⚔️</h2>
+      
+      <div class="combat-arena">
+        <!-- Attacker -->
+        <div class="combat-fighter" id="fighter-att">
+          <div class="fighter-title" id="combat-att-name">Атакующий</div>
+          <div style="font-size:0.9rem;" id="combat-att-stats">Атк: 2 | Броня: 1 | Уворот: 2/6</div>
+          <div class="health-bar-container">
+            <div class="health-bar-fill" id="combat-att-hp-fill" style="width:100%;"></div>
+          </div>
+          <div>HP: <b id="combat-att-hp">4/4</b></div>
+        </div>
+
+        <!-- VS & Dice -->
+        <div class="dice-container">
+          <div style="font-weight:bold; font-size:1.2rem; color:var(--margin-red);">VS</div>
+          <div class="dice-d6" id="combat-dice" onclick="rollCombatManual()">
+            <div class="dice-pip" id="pip-1"></div><div class="dice-pip" id="pip-2"></div><div class="dice-pip" id="pip-3"></div>
+            <div class="dice-pip" id="pip-4"></div><div class="dice-pip" id="pip-5"></div><div class="dice-pip" id="pip-6"></div>
+            <div class="dice-pip" id="pip-7"></div><div class="dice-pip" id="pip-8"></div><div class="dice-pip" id="pip-9"></div>
+          </div>
+          <span style="font-size:0.95rem; color:#666;" id="dice-status">Бросок кубика d6</span>
+        </div>
+
+        <!-- Defender -->
+        <div class="combat-fighter" id="fighter-def">
+          <div class="fighter-title" id="combat-def-name">Защитник</div>
+          <div style="font-size:0.9rem;" id="combat-def-stats">Атк: 1 | Броня: 0 | Уворот: 1/6</div>
+          <div class="health-bar-container">
+            <div class="health-bar-fill" id="combat-def-hp-fill" style="width:100%;"></div>
+          </div>
+          <div>HP: <b id="combat-def-hp">2/2</b></div>
+        </div>
+      </div>
+
+      <!-- General Skill Banner if any -->
+      <div id="general-skill-badge" style="display:none; text-align:center; margin-bottom:10px; background:#fff8db; padding:6px; border:1px dashed #daa520; border-radius:4px; font-weight:bold;">
+        ⭐ Генерал в бою: Доступен 1 переброс кости d6!
+        <button class="doodle-btn" style="padding:2px 8px; font-size:0.85rem; margin-left:8px;" id="btn-reroll" onclick="useGeneralReroll()">Перебросить!</button>
+      </div>
+
+      <!-- Combat Log Box -->
+      <div id="combat-log" style="height:110px; overflow-y:auto; background:#fff; border:1.5px solid #aaa; border-radius:4px; padding:8px; font-size:0.95rem; line-height:1.35; margin-bottom:14px;">
+        Добро пожаловать в дуэль!
+      </div>
+
+      <div style="display:flex; justify-content:center; gap:12px;">
+        <button class="doodle-btn primary" id="btn-combat-step" onclick="combatStepNext()">🎲 Сделать ход дуэли</button>
+        <button class="doodle-btn" id="btn-combat-auto" onclick="combatAutoResolve()">⏩ Быстрый бой</button>
+        <button class="doodle-btn danger" id="btn-combat-close" style="display:none;" onclick="closeCombatModal()">Завершить бой</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= GAME OVER MODAL ================= -->
+  <div id="modal-gameover" class="modal-backdrop" style="display:none;">
+    <div class="modal-doodle sticker" style="text-align:center;">
+      <h2 class="modal-title">🏆 Победитель Тетрадной Войны!</h2>
+      <p style="font-size:1.5rem; margin:16px 0;" id="gameover-winner-text">Империя одержала триумф!</p>
+      <div style="margin:24px 0;">
+        <button class="doodle-btn primary" onclick="location.reload()">Вернуться в лобби</button>
+      </div>
+    </div>
   </div>
 
   <script>
-    // --- ПАРАМЕТРЫ МИРА И КАРТЫ (Двойной лист: 34 x 26 клеток) ---
-    const COLS = 34;
-    const ROWS = 26;
-    const CAPITAL_SIZE = 5; // Столица 5 на 5
+    /* =====================================================================
+       1. WEB AUDIO API SYNTHESIZER (Pencil scratching, dice roll, trumpet)
+       ===================================================================== */
+    let audioCtx = null;
+    let soundEnabled = true;
 
-    // Державы
-    const FACTIONS = {
-      EMPTY: { id: 'empty', name: 'Нейтральные земли', class: 'neutral', color: '#f8fafc' },
-      PLAYER: { id: 'player', name: 'Синяя Держава (Вы)', class: 'p-player', color: '#3b82f6' },
-      RED: { id: 'red', name: 'Красная Империя', class: 'p-red', color: '#ef4444' },
-      GREEN: { id: 'green', name: 'Зелёный Альянс', class: 'p-green', color: '#10b981' },
-      YELLOW: { id: 'yellow', name: 'Жёлтое Ханство', class: 'p-yellow', color: '#f59e0b' }
-    };
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
 
-    let gridData = [];
-    let isPaused = false;
-    let army = 50;
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('sound-btn').innerText = soundEnabled ? '🔊' : '🔇';
+      showToast(soundEnabled ? 'Звук включен' : 'Звук выключен');
+    }
 
-    // Вражеские боты с их армиями
-    let bots = {
-      red: { army: 50, alive: true, faction: FACTIONS.RED },
-      green: { army: 50, alive: true, faction: FACTIONS.GREEN },
-      yellow: { army: 50, alive: true, faction: FACTIONS.YELLOW }
-    };
-
-    const gridEl = document.getElementById('grid');
-    const armyValEl = document.getElementById('army-val');
-    const incomeValEl = document.getElementById('income-val');
-    const landValEl = document.getElementById('land-val');
-    const toggleWarBtn = document.getElementById('toggle-war');
-    const restartBtn = document.getElementById('restart-btn');
-    const logsEl = document.getElementById('logs');
-
-    // Простые звуковые эффекты через Web Audio API
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playBeep(freq, type = 'sine', duration = 0.1) {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+    // Procedural sound: Pencil scratch on notebook paper
+    function playPencilSound() {
+      if (!soundEnabled) return;
       try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        const ctx = getAudioContext();
+        const bufferSize = ctx.sampleRate * 0.12; // 120ms
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.5));
+        }
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1400, ctx.currentTime);
+        filter.Q.setValueAtTime(3.0, ctx.currentTime);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.35, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        noise.start();
+      } catch (e) {}
+    }
+
+    // Procedural sound: Dice clatter
+    function playDiceSound() {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        for (let i = 0; i < 4; i++) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(120 + Math.random() * 200, ctx.currentTime + i * 0.05);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.05 + 0.04);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + i * 0.05);
+          osc.stop(ctx.currentTime + i * 0.05 + 0.05);
+        }
+      } catch (e) {}
+    }
+
+    // Procedural sound: Sword hit / clash
+    function playHitSound() {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
         osc.connect(gain);
-        gain.connect(audioCtx.destination);
+        gain.connect(ctx.destination);
         osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-      } catch(e) {}
+        osc.stop(ctx.currentTime + 0.16);
+      } catch (e) {}
     }
 
-    function addLog(text, type = '') {
-      const msg = document.createElement('div');
-      msg.className = 'log-msg ' + type;
-      const time = new Date().toLocaleTimeString().slice(3);
-      msg.innerHTML = `[${time}] ${text}`;
-      logsEl.prepend(msg);
+    // Procedural sound: Victory chime
+    function playVictoryChime() {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        const notes = [261.6, 329.6, 392.0, 523.25];
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
+          gain.gain.setValueAtTime(0.25, ctx.currentTime + idx * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + idx * 0.12 + 0.4);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + idx * 0.12);
+          osc.stop(ctx.currentTime + idx * 0.12 + 0.45);
+        });
+      } catch (e) {}
     }
 
-    // Инициализация карты
-    function initGame() {
-      gridData = [];
-      gridEl.innerHTML = '';
-      gridEl.style.gridTemplateColumns = `repeat(${COLS}, 25px)`;
-      gridEl.style.gridTemplateRows = `repeat(${ROWS}, 25px)`;
+    /* =====================================================================
+       2. CONFIGURATION, CONSTANTS & GAME DATA
+       ===================================================================== */
+    const NATION_PRESETS = [
+      { name: "Синяя Империя", flag: "🟦", color: "#2563eb", ink: "#1d4ed8" },
+      { name: "Красное Княжество", flag: "🟥", color: "#dc2626", ink: "#b91c1c" },
+      { name: "Зеленая Республика", flag: "🟩", color: "#16a34a", ink: "#15803d" },
+      { name: "Золотой Султанат", flag: "🟨", color: "#ca8a04", ink: "#a16207" }
+    ];
 
-      army = 50;
-      bots.red.army = 50; bots.red.alive = true;
-      bots.green.army = 50; bots.green.alive = true;
-      bots.yellow.army = 50; bots.yellow.alive = true;
+    const BUILDING_TYPES = {
+      farm: { name: "Ферма", cost: 8, upkeep: 1, icon: "🌾", desc: "Кормит до 10 клеток населения" },
+      factory: { name: "Завод", cost: 10, upkeep: 1, icon: "🏭", desc: "Снабжает товарами 10 населения" },
+      lab: { name: "Лаборатория", cost: 15, upkeep: 1, icon: "🔬", desc: "+1 Уровень науки" },
+      temple: { name: "Храм Солнца", cost: 12, upkeep: 1, icon: "☀️", desc: "+10 авторитета веры за ход" },
+      barracks: { name: "Казарма", cost: 12, upkeep: 1, icon: "⛺", desc: "+1 к атаке державы, открывает мечников" },
+      fortress: { name: "Крепость", cost: 14, upkeep: 1, icon: "🏰", desc: "+1 к защите державы, открывает мечников" }
+    };
 
-      // Заполнение пустыми клетками
-      for (let r = 0; r < ROWS; r++) {
-        gridData[r] = [];
-        for (let c = 0; c < COLS; c++) {
-          gridData[r][c] = {
-            r, c,
-            owner: FACTIONS.EMPTY.id,
-            isCapitalCenter: false,
-            defense: 5 // Прочность нейтральной клетки
+    // Soldier stats by Science Level (1 to 6)
+    function getUnitStatsByScience(scienceLvl) {
+      const lvl = Math.min(6, Math.max(1, scienceLvl));
+      let dodgeChance = 1; // out of 6
+      let armor = 0;
+      let hp = 2;
+      let attack = 1;
+
+      if (lvl === 1) {
+        dodgeChance = 1; armor = 0; hp = 2; attack = 1;
+      } else if (lvl === 2 || lvl === 3) {
+        dodgeChance = 2; armor = 0; hp = 4; attack = (lvl === 2 ? 1 : 2);
+      } else if (lvl === 4 || lvl === 5) {
+        dodgeChance = 3; armor = 1; hp = 6; attack = (lvl === 4 ? 2 : 3);
+      } else if (lvl >= 6) {
+        dodgeChance = 4; armor = 2; hp = 10; attack = 3;
+      }
+      return { lvl, dodgeChance, armor, hp, attack, initiative: lvl };
+    }
+
+    /* =====================================================================
+       3. STATE MANAGEMENT
+       ===================================================================== */
+    let Game = {
+      mode: 'single', // 'single', 'hotseat', 'network'
+      mapSize: 25,
+      grid: [], // 2D array [y][x] of cell objects
+      players: [],
+      currentPlayerIdx: 0,
+      turnRound: 1,
+      selectedCell: null,
+      selectedUnit: null,
+      currentAction: null, // 'colonize', 'build', null
+      buildingToPlace: null,
+      isGameOver: false,
+      // Multiplayer network
+      peer: null,
+      peerConn: null,
+      isHost: true,
+      myPlayerIndex: 0
+    };
+
+    /* Cell structure:
+      {
+        x, y,
+        owner: null or playerIdx,
+        isCapital: boolean,
+        building: null or 'farm'/'factory'/'lab'/'temple'/'barracks'/'fortress',
+        unit: null or { id, owner, type: 'soldier'|'general'|'order', hp, maxHp, attack, armor, dodge, general: boolean, hasMoved: boolean }
+      }
+    */
+
+    /* Player structure:
+      {
+        id: number,
+        name: string,
+        flag: string,
+        color: string,
+        ink: string,
+        type: 'human' | 'ai_aggro' | 'ai_eco' | 'remote',
+        alive: boolean,
+        gold: 25,
+        capitalX: number,
+        capitalY: number,
+        scienceLevel: 1,
+        // Religion
+        religion: {
+          name: "Культ Солнца",
+          nature: "Прозелитизм",
+          authority: 100, // drops on famine/loss; <20 = schism
+          faithPoints: 20
+        }
+      }
+    */
+
+    /* =====================================================================
+       4. LOBBY INITIALIZATION & SETUP
+       ===================================================================== */
+    function renderLobbySlots() {
+      const container = document.getElementById('slots-container');
+      container.innerHTML = '';
+
+      for (let i = 0; i < 4; i++) {
+        const preset = NATION_PRESETS[i];
+        const slotEl = document.createElement('div');
+        slotEl.className = 'slot-card sticker';
+        slotEl.innerHTML = `
+          <div class="slot-header">
+            <span class="flag-picker" id="slot-flag-${i}">${preset.flag}</span>
+            <input type="text" class="doodle-input" id="slot-name-${i}" value="${preset.name}" style="flex:1;">
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Роль:</span>
+            <select class="doodle-select" id="slot-type-${i}" onchange="onSlotTypeChange(${i})">
+              <option value="human" ${i === 0 ? 'selected' : ''}>Игрок (Человек)</option>
+              <option value="ai_aggro" ${i === 1 ? 'selected' : ''}>ИИ: Агрессор ⚔️</option>
+              <option value="ai_eco" ${i >= 2 ? 'selected' : ''}>ИИ: Экономист 🌾</option>
+              <option value="closed" ${i > 1 ? '' : ''}>Закрыто ✖</option>
+            </select>
+          </div>
+        `;
+        container.appendChild(slotEl);
+      }
+    }
+
+    function setLobbyMode(mode) {
+      Game.mode = mode;
+      document.querySelectorAll('.mode-tab').forEach(el => el.classList.remove('active'));
+      document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+
+      const netPanel = document.getElementById('net-panel');
+      if (mode === 'network') {
+        netPanel.style.display = 'block';
+      } else {
+        netPanel.style.display = 'none';
+      }
+
+      // Automatically adjust slot defaults for mode
+      if (mode === 'hotseat') {
+        document.getElementById('slot-type-0').value = 'human';
+        document.getElementById('slot-type-1').value = 'human';
+      } else if (mode === 'single') {
+        document.getElementById('slot-type-0').value = 'human';
+        document.getElementById('slot-type-1').value = 'ai_aggro';
+      }
+    }
+
+    function onSlotTypeChange(idx) {
+      // Ensure at least 2 active players
+    }
+
+    /* WebRTC PeerJS Setup (Host & Join on static pages) */
+    function initHostNetwork() {
+      try {
+        Game.isHost = true;
+        Game.myPlayerIndex = 0;
+        const randomId = 'doodle-' + Math.floor(1000 + Math.random() * 9000);
+        Game.peer = new Peer(randomId);
+
+        Game.peer.on('open', (id) => {
+          document.getElementById('my-peer-id').innerText = id;
+          document.getElementById('net-status').innerText = 'Ожидание подключения второго игрока...';
+          showToast('Комната создана: ' + id);
+        });
+
+        Game.peer.on('connection', (conn) => {
+          Game.peerConn = conn;
+          document.getElementById('net-status').innerText = 'Второй игрок подключился!';
+          showToast('Игрок подключился!');
+          setupNetConnectionHandlers();
+        });
+
+        Game.peer.on('error', (err) => {
+          document.getElementById('net-status').innerText = 'Ошибка сети: ' + err.message;
+        });
+      } catch (e) {
+        alert('Ошибка инициализации WebRTC: ' + e.message);
+      }
+    }
+
+    function copyRoomId() {
+      const id = document.getElementById('my-peer-id').innerText;
+      if (id && id !== '[нажмите создать]') {
+        navigator.clipboard.writeText(id);
+        showToast('ID скопирован в буфер!');
+      }
+    }
+
+    function joinNetworkRoom() {
+      const joinId = document.getElementById('join-peer-id').value.trim();
+      if (!joinId) {
+        alert('Введите Room ID хоста!');
+        return;
+      }
+      try {
+        Game.isHost = false;
+        Game.myPlayerIndex = 1;
+        Game.peer = new Peer();
+        Game.peer.on('open', () => {
+          document.getElementById('net-status').innerText = 'Подключение к хосту...';
+          Game.peerConn = Game.peer.connect(joinId);
+          setupNetConnectionHandlers();
+        });
+      } catch (e) {
+        alert('Ошибка подключения: ' + e.message);
+      }
+    }
+
+    function setupNetConnectionHandlers() {
+      Game.peerConn.on('open', () => {
+        document.getElementById('net-status').innerText = 'Соединение установлено!';
+        showToast('Связь WebRTC установлена!');
+        if (!Game.isHost) {
+          // Client waits for gameState from host
+          showToast('Ждем старта игры от хоста...');
+        }
+      });
+
+      Game.peerConn.on('data', (data) => {
+        handleNetMessage(data);
+      });
+    }
+
+    function handleNetMessage(msg) {
+      if (msg.type === 'START_GAME') {
+        loadGameStateFromHost(msg.state);
+      } else if (msg.type === 'SYNC_TURN') {
+        applySyncedTurnState(msg.state);
+      } else if (msg.type === 'ACTION') {
+        applyRemoteAction(msg.action);
+      }
+    }
+
+    function sendNetMessage(msg) {
+      if (Game.peerConn && Game.peerConn.open) {
+        Game.peerConn.send(msg);
+      }
+    }
+
+    /* Start Game from Lobby */
+    function startGameFromLobby() {
+      const sizeRadio = document.querySelector('input[name="map-size"]:checked');
+      Game.mapSize = parseInt(sizeRadio ? sizeRadio.value : '25');
+
+      // Build active players
+      Game.players = [];
+      for (let i = 0; i < 4; i++) {
+        const type = document.getElementById(`slot-type-${i}`).value;
+        if (type !== 'closed') {
+          const name = document.getElementById(`slot-name-${i}`).value.trim() || NATION_PRESETS[i].name;
+          const flag = document.getElementById(`slot-flag-${i}`).innerText || NATION_PRESETS[i].flag;
+          const preset = NATION_PRESETS[i];
+
+          let playerType = type;
+          if (Game.mode === 'network') {
+            playerType = (i === Game.myPlayerIndex) ? 'human' : (i === 1 ? 'remote' : type);
+          }
+
+          Game.players.push({
+            id: Game.players.length,
+            originalSlot: i,
+            name: name,
+            flag: flag,
+            color: preset.color,
+            ink: preset.ink,
+            type: playerType,
+            alive: true,
+            gold: 30,
+            scienceLevel: 1,
+            religion: {
+              name: "Культ Солнца",
+              nature: "Прозелитизм",
+              authority: 100,
+              faithPoints: 20
+            }
+          });
+        }
+      }
+
+      if (Game.players.length < 2) {
+        alert('Для игры требуется минимум 2 государства!');
+        return;
+      }
+
+      initGameBoard();
+      document.getElementById('screen-lobby').style.display = 'none';
+      document.getElementById('screen-game').style.display = 'block';
+
+      initCanvas();
+      updateHUD();
+      playPencilSound();
+      showToast('Партия началась! Первый ход: ' + Game.players[0].name);
+
+      if (Game.mode === 'network' && Game.isHost) {
+        sendNetMessage({ type: 'START_GAME', state: exportGameState() });
+      }
+
+      // Check if player 1 is AI
+      checkAITurn();
+    }
+
+    /* =====================================================================
+       5. MAP GENERATION & RULES
+       ===================================================================== */
+    function initGameBoard() {
+      const N = Game.mapSize;
+      Game.grid = [];
+      for (let y = 0; y < N; y++) {
+        Game.grid[y] = [];
+        for (let x = 0; x < N; x++) {
+          Game.grid[y][x] = {
+            x, y,
+            owner: null,
+            isCapital: false,
+            building: null,
+            unit: null
           };
         }
       }
 
-      // Спавн 4 столиц (5х5 каждая):
-      // 1. Игрок: в левом нижнем квадранте
-      spawnCountry(18, 4, FACTIONS.PLAYER.id);
-      // 2. Красные: правый верхний квадрант
-      spawnCountry(3, 24, FACTIONS.RED.id);
-      // 3. Зелёные: левый верхний квадрант
-      spawnCountry(3, 4, FACTIONS.GREEN.id);
-      // 4. Жёлтые: правый нижний квадрант
-      spawnCountry(18, 24, FACTIONS.YELLOW.id);
+      // Position Capital 5x5 squares for each player in corners / spread out
+      const spawnOffsets = [
+        { cx: 4, cy: 4 },                          // Top-Left
+        { cx: N - 5, cy: N - 5 },                  // Bottom-Right
+        { cx: N - 5, cy: 4 },                      // Top-Right
+        { cx: 4, cy: N - 5 }                       // Bottom-Left
+      ];
 
-      renderFullGrid();
-      updatePlayerStats();
-      addLog('⚔️ Началась битва за тетрадный мир! Ваша столица 5х5 на западе.', 'victory');
-    }
+      Game.players.forEach((player, idx) => {
+        const spawn = spawnOffsets[idx % spawnOffsets.length];
+        player.capitalX = spawn.cx;
+        player.capitalY = spawn.cy;
 
-    // Спавн страны с территорией 5х5 и столицей в центре
-    function spawnCountry(startR, startC, factionId) {
-      const centerR = startR + Math.floor(CAPITAL_SIZE / 2);
-      const centerC = startC + Math.floor(CAPITAL_SIZE / 2);
-
-      for (let r = startR; r < startR + CAPITAL_SIZE; r++) {
-        for (let c = startC; c < startC + CAPITAL_SIZE; c++) {
-          if (r < ROWS && c < COLS) {
-            gridData[r][c].owner = factionId;
-            gridData[r][c].defense = 15;
-            if (r === centerR && c === centerC) {
-              gridData[r][c].isCapitalCenter = true;
-              gridData[r][c].defense = 60; // Столичная клетка крепче!
-            }
-          }
-        }
-      }
-    }
-
-    // Прорисовка всей сетки
-    function renderFullGrid() {
-      gridEl.innerHTML = '';
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          const cellData = gridData[r][c];
-          const cellEl = document.createElement('div');
-          cellEl.className = 'cell';
-          cellEl.id = `cell-${r}-${c}`;
-          
-          cellEl.onclick = () => onCellClick(r, c);
-          gridEl.appendChild(cellEl);
-          updateCellDisplay(r, c);
-        }
-      }
-    }
-
-    // Обновление отображения клетки
-    function updateCellDisplay(r, c) {
-      const cellData = gridData[r][c];
-      const cellEl = document.getElementById(`cell-${r}-${c}`);
-      if (!cellEl) return;
-
-      // Сброс классов
-      cellEl.className = 'cell';
-      
-      const faction = Object.values(FACTIONS).find(f => f.id === cellData.owner);
-      if (faction) {
-        cellEl.classList.add(faction.class);
-      }
-
-      if (cellData.isCapitalCenter) {
-        cellEl.innerHTML = '<span class="capital-star">⭐</span>';
-      } else {
-        cellEl.innerHTML = '';
-      }
-
-      // Подсветка доступных для атаки игроком
-      if (cellData.owner !== FACTIONS.PLAYER.id && isNeighborToOwner(r, c, FACTIONS.PLAYER.id)) {
-        cellEl.classList.add('can-attack');
-      }
-    }
-
-    // Проверка соседства по вертикали/горизонтали/диагонали
-    function isNeighborToOwner(r, c, ownerId) {
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          if (dr === 0 && dc === 0) continue;
-          const nr = r + dr;
-          const nc = c + dc;
-          if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-            if (gridData[nr][nc].owner === ownerId) {
-              return true;
-            }
-          }
-        }
-      }
-      return false;
-    }
-
-    // Клик по клетке игроком
-    function onCellClick(r, c) {
-      if (isPaused) return;
-      const target = gridData[r][c];
-
-      // Если кликнули по своей клетке — укрепляем
-      if (target.owner === FACTIONS.PLAYER.id) {
-        if (army >= 10) {
-          army -= 10;
-          target.defense += 15;
-          playBeep(440, 'triangle', 0.08);
-          addLog(`Укреплена оборона клетки [${r}, ${c}]! Оборона: ${target.defense}`);
-          updatePlayerStats();
-        }
-        return;
-      }
-
-      // Если клетка не соседствует с нашей землей — нельзя напасть
-      if (!isNeighborToOwner(r, c, FACTIONS.PLAYER.id)) {
-        playBeep(180, 'sawtooth', 0.1);
-        addLog('❌ Нельзя атаковать! Клетка не граничит с вашей державой.');
-        return;
-      }
-
-      // АТАКА!
-      const attackPower = Math.min(army, 25); // отправляем пачку до 25 войск за клик
-      if (attackPower < 5) {
-        playBeep(200, 'sawtooth', 0.1);
-        addLog('⚠️ Недостаточно войск для атаки! Подождите прироста армии.');
-        return;
-      }
-
-      army -= attackPower;
-      target.defense -= attackPower;
-
-      if (target.defense <= 0) {
-        // Успешный захват клетки!
-        const prevOwner = target.owner;
-        const wasCapital = target.isCapitalCenter;
-
-        target.owner = FACTIONS.PLAYER.id;
-        target.defense = 12; // Базовая оборона новой земли
-        playBeep(650, 'square', 0.15);
-
-        if (wasCapital && prevOwner !== FACTIONS.EMPTY.id) {
-          // ЗАХВАТ СТОЛИЦЫ ВРАГА! Капитуляция всей фракции!
-          conquerFaction(prevOwner, FACTIONS.PLAYER.id);
-        } else {
-          addLog(`🚩 Вы захватили новую территорию!`);
-        }
-      } else {
-        playBeep(320, 'square', 0.1);
-        addLog(`⚔️ Бой за клетку! Вражеская оборона ослаблена до ${target.defense}`);
-      }
-
-      updateAllSurroundings();
-      updatePlayerStats();
-    }
-
-    // Капитуляция страны при падении столицы ⭐
-    function conquerFaction(loserId, winnerId) {
-      playBeep(880, 'triangle', 0.4);
-      let count = 0;
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          if (gridData[r][c].owner === loserId) {
-            gridData[r][c].owner = winnerId;
-            gridData[r][c].isCapitalCenter = false;
-            count++;
-          }
-        }
-      }
-      if (bots[loserId]) bots[loserId].alive = false;
-
-      const loserName = Object.values(FACTIONS).find(f => f.id === loserId)?.name || loserId;
-      addLog(`👑 СТОЛИЦА ПАЛА! ${loserName} капитулировала! Вам перешло ${count} земель!`, 'victory');
-      
-      checkVictory();
-    }
-
-    // Проверка победы игрока
-    function checkVictory() {
-      const remainingEnemies = Object.values(bots).filter(b => b.alive);
-      if (remainingEnemies.length === 0) {
-        playBeep(950, 'triangle', 0.6);
-        alert('🎉 ПОБЕДА! Вы объединили весь тетрадный мир под своими знамёнами!');
-        addLog('🏆 ПОЛНАЯ ПОБЕДА НАД ВСЕМИ СТРАНАМИ!', 'victory');
-      }
-    }
-
-    function updateAllSurroundings() {
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          updateCellDisplay(r, c);
-        }
-      }
-    }
-
-    // Подсчет статистики игрока
-    function updatePlayerStats() {
-      let count = 0;
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          if (gridData[r][c].owner === FACTIONS.PLAYER.id) count++;
-        }
-      }
-
-      const income = Math.max(5, Math.floor(count * 1.2));
-      armyValEl.textContent = army;
-      incomeValEl.textContent = `+${income}/сек`;
-      landValEl.textContent = count;
-    }
-
-    // Игровой цикл: прирост войск и действия ботов раз в секунду
-    setInterval(() => {
-      if (isPaused) return;
-
-      // 1. Прирост игрока
-      let playerCount = 0;
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          if (gridData[r][c].owner === FACTIONS.PLAYER.id) playerCount++;
-        }
-      }
-      army += Math.max(5, Math.floor(playerCount * 1.2));
-      updatePlayerStats();
-
-      // 2. Ход ИИ (Ботов)
-      Object.keys(bots).forEach(botKey => {
-        const bot = bots[botKey];
-        if (!bot.alive) return;
-
-        // Считаем земли бота
-        let botLands = [];
-        for (let r = 0; r < ROWS; r++) {
-          for (let c = 0; c < COLS; c++) {
-            if (gridData[r][c].owner === botKey) {
-              botLands.push({r, c});
-            }
-          }
-        }
-
-        // Если бота стёрли
-        if (botLands.length === 0) {
-          bot.alive = false;
-          return;
-        }
-
-        // Прирост армии бота
-        bot.army += Math.max(4, Math.floor(botLands.length * 1.1));
-
-        // Бот ищет соседей для атаки
-        if (bot.army >= 20) {
-          const randomLand = botLands[Math.floor(Math.random() * botLands.length)];
-          const neighbors = [
-            {r: randomLand.r - 1, c: randomLand.c},
-            {r: randomLand.r + 1, c: randomLand.c},
-            {r: randomLand.r, c: randomLand.c - 1},
-            {r: randomLand.r, c: randomLand.c + 1}
-          ].filter(n => n.r >= 0 && n.r < ROWS && n.c >= 0 && n.c < COLS);
-
-          // Ищем чужую клетку для атаки
-          const target = neighbors.find(n => gridData[n.r][n.c].owner !== botKey);
-          if (target) {
-            const cell = gridData[target.r][target.c];
-            const force = Math.min(bot.army, 20);
-            bot.army -= force;
-            cell.defense -= force;
-
-            if (cell.defense <= 0) {
-              const prevOwner = cell.owner;
-              const wasCapital = cell.isCapitalCenter;
-              cell.owner = botKey;
-              cell.defense = 12;
-
-              if (prevOwner === FACTIONS.PLAYER.id) {
-                playBeep(140, 'sawtooth', 0.2);
-                addLog(`⚠️ Враг (${bot.faction.name}) отбил у вас клетку [${target.r}, ${target.c}]!`, 'important');
-                if (wasCapital) {
-                  alert('💀 Ваша столица захвачена врагом! Игра окончена.');
-                  initGame();
-                  return;
-                }
-              }
-
-              if (wasCapital && prevOwner !== FACTIONS.EMPTY.id && prevOwner !== FACTIONS.PLAYER.id) {
-                conquerFaction(prevOwner, botKey);
+        // Fill 5x5 territory
+        for (let dy = -2; dy <= 2; dy++) {
+          for (let dx = -2; dx <= 2; dx++) {
+            const gx = spawn.cx + dx;
+            const gy = spawn.cy + dy;
+            if (gx >= 0 && gx < N && gy >= 0 && gy < N) {
+              const cell = Game.grid[gy][gx];
+              cell.owner = player.id;
+              if (dx === 0 && dy === 0) {
+                cell.isCapital = true;
               }
             }
           }
         }
       });
+    }
 
-      updateAllSurroundings();
-    }, 1000);
+    /* =====================================================================
+       6. CANVAS RENDERING WITH PROCEDURAL SKETCH / DOODLE STYLE
+       ===================================================================== */
+    let canvas, ctx;
+    let camera = { x: 0, y: 0, zoom: 1.0 };
+    let isDragging = false;
+    let dragStart = { x: 0, y: 0 };
+    const CELL_PX = 32;
 
-    // Пауза
-    toggleWarBtn.onclick = () => {
-      isPaused = !isPaused;
-      toggleWarBtn.textContent = isPaused ? '▶️ Продолжить' : '⏸️ Пауза';
-    };
+    function initCanvas() {
+      canvas = document.getElementById('game-canvas');
+      ctx = canvas.getContext('2d');
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
 
-    // Перезапуск
-    restartBtn.onclick = () => {
-      if (confirm('Начать войну заново?')) {
-        initGame();
+      // Center camera on Capital of player 0
+      resetView();
+
+      // Mouse pan & zoom listeners
+      const container = document.getElementById('viewport-container');
+      container.addEventListener('mousedown', onMouseDown);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      container.addEventListener('wheel', onWheel, { passive: false });
+
+      // Touch events for mobile/tablet
+      container.addEventListener('touchstart', onTouchStart, { passive: false });
+      container.addEventListener('touchmove', onTouchMove, { passive: false });
+      container.addEventListener('touchend', onTouchEnd);
+
+      // Render loop
+      requestAnimationFrame(renderLoop);
+    }
+
+    function resizeCanvas() {
+      const container = document.getElementById('viewport-container');
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+    }
+
+    function resetView() {
+      const curP = Game.players[Game.currentPlayerIdx];
+      const targetX = (curP ? curP.capitalX : Game.mapSize / 2) * CELL_PX;
+      const targetY = (curP ? curP.capitalY : Game.mapSize / 2) * CELL_PX;
+      camera.zoom = 1.0;
+      camera.x = canvas.width / 2 - targetX - CELL_PX / 2;
+      camera.y = canvas.height / 2 - targetY - CELL_PX / 2;
+    }
+
+    function zoomView(factor) {
+      const oldZoom = camera.zoom;
+      const newZoom = Math.min(2.5, Math.max(0.4, camera.zoom * factor));
+      // Zoom toward center of screen
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      camera.x = centerX - (centerX - camera.x) * (newZoom / oldZoom);
+      camera.y = centerY - (centerY - camera.y) * (newZoom / oldZoom);
+      camera.zoom = newZoom;
+    }
+
+    function onWheel(e) {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      const mouseX = e.clientX;
+      const mouseY = e.clientY - 60; // offset top bar
+      const newZoom = Math.min(2.5, Math.max(0.4, camera.zoom * zoomFactor));
+      camera.x = mouseX - (mouseX - camera.x) * (newZoom / camera.zoom);
+      camera.y = mouseY - (mouseY - camera.y) * (newZoom / camera.zoom);
+      camera.zoom = newZoom;
+    }
+
+    let touchDist = 0;
+    function onTouchStart(e) {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        dragStart.x = e.touches[0].clientX - camera.x;
+        dragStart.y = e.touches[0].clientY - camera.y;
+      } else if (e.touches.length === 2) {
+        touchDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
       }
+    }
+    function onTouchMove(e) {
+      e.preventDefault();
+      if (e.touches.length === 1 && isDragging) {
+        camera.x = e.touches[0].clientX - dragStart.x;
+        camera.y = e.touches[0].clientY - dragStart.y;
+      } else if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        zoomView(dist / touchDist);
+        touchDist = dist;
+      }
+    }
+    function onTouchEnd() {
+      isDragging = false;
+    }
+
+    let clickStartPos = { x: 0, y: 0 };
+    function onMouseDown(e) {
+      if (e.button !== 0) return;
+      isDragging = true;
+      dragStart.x = e.clientX - camera.x;
+      dragStart.y = e.clientY - camera.y;
+      clickStartPos.x = e.clientX;
+      clickStartPos.y = e.clientY;
+    }
+
+    function onMouseMove(e) {
+      if (isDragging) {
+        camera.x = e.clientX - dragStart.x;
+        camera.y = e.clientY - dragStart.y;
+      }
+    }
+
+    function onMouseUp(e) {
+      if (isDragging) {
+        isDragging = false;
+        // Detect click if mouse didn't move much
+        if (Math.hypot(e.clientX - clickStartPos.x, e.clientY - clickStartPos.y) < 5) {
+          handleCanvasClick(e.clientX, e.clientY - 60);
+        }
+      }
+    }
+
+    // Convert Screen Coords to Grid (X, Y)
+    function screenToGrid(sx, sy) {
+      const worldX = (sx - camera.x) / camera.zoom;
+      const worldY = (sy - camera.y) / camera.zoom;
+      const gx = Math.floor(worldX / CELL_PX);
+      const gy = Math.floor(worldY / CELL_PX);
+      return { gx, gy };
+    }
+
+    /* Handle Click on Map */
+    function handleCanvasClick(sx, sy) {
+      const { gx, gy } = screenToGrid(sx, sy);
+      if (gx < 0 || gx >= Game.mapSize || gy < 0 || gy >= Game.mapSize) return;
+
+      const cell = Game.grid[gy][gx];
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+
+      // Check if it's current player's turn to act (or remote/AI)
+      if (curPlayer.type !== 'human') {
+        showToast('Сейчас ход ' + curPlayer.name);
+        return;
+      }
+
+      playPencilSound();
+
+      // Colonize mode: 3x3 expansion
+      if (Game.currentAction === 'colonize') {
+        performColonize(gx, gy);
+        return;
+      }
+
+      // Build mode: placing selected building
+      if (Game.currentAction === 'build') {
+        performBuild(cell);
+        return;
+      }
+
+      // Unit movement / attack or selection
+      if (Game.selectedUnit) {
+        const u = Game.selectedUnit;
+        const dist = Math.abs(gx - u.x) + Math.abs(gy - u.y);
+
+        if (dist === 1) {
+          // Adjacent move or attack
+          if (cell.unit) {
+            if (cell.unit.owner !== curPlayer.id) {
+              // Initiate Combat duel!
+              initiateCombat(u, cell.unit, cell);
+              Game.selectedUnit = null;
+              return;
+            }
+          } else {
+            // Move unit to adjacent cell
+            if (!u.hasMoved) {
+              const fromCell = Game.grid[u.y][u.x];
+              fromCell.unit = null;
+              cell.unit = u;
+              u.x = gx;
+              u.y = gy;
+              u.hasMoved = true;
+              // If entering enemy or neutral cell, capture territory!
+              if (cell.owner !== curPlayer.id) {
+                cell.owner = curPlayer.id;
+                showToast('Захвачена новая клетка!');
+              }
+              Game.selectedUnit = null;
+              updateHUD();
+              return;
+            } else {
+              showToast('Этот юнит уже ходил в этом раунде!');
+            }
+          }
+        }
+      }
+
+      // Select unit or cell
+      if (cell.unit && cell.unit.owner === curPlayer.id) {
+        Game.selectedUnit = cell.unit;
+        Game.selectedCell = cell;
+        showToast(`Выбран: ${cell.unit.general ? '⭐ Генерал' : '🛡️ Солдат'} (HP: ${cell.unit.hp})`);
+      } else {
+        Game.selectedUnit = null;
+        Game.selectedCell = cell;
+      }
+
+      updateHUD();
+    }
+
+    /* Hand-Drawn Sketch Render Functions */
+    function renderLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(camera.x, camera.y);
+      ctx.scale(camera.zoom, camera.zoom);
+
+      drawGridAndTerritories();
+      drawSelectionHighlights();
+
+      ctx.restore();
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    function drawGridAndTerritories() {
+      const N = Game.mapSize;
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+
+      // 1. Draw Cells & Population dots
+      for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+          const cell = Game.grid[y][x];
+          const px = x * CELL_PX;
+          const py = y * CELL_PX;
+
+          // Territory Fill with hand-drawn subtle color wash
+          if (cell.owner !== null) {
+            const owner = Game.players.find(p => p.id === cell.owner);
+            if (owner) {
+              ctx.fillStyle = owner.color + '26'; // 15% opacity tint
+              ctx.fillRect(px, py, CELL_PX, CELL_PX);
+
+              // Hatch border or dotted line for territory edge
+              ctx.strokeStyle = owner.color + '88';
+              ctx.lineWidth = 1.2;
+              ctx.strokeRect(px + 0.5, py + 0.5, CELL_PX - 1, CELL_PX - 1);
+
+              // Population dot: unoccupied cells are people
+              if (!cell.building && !cell.unit && !cell.isCapital) {
+                ctx.fillStyle = owner.ink || '#333';
+                ctx.beginPath();
+                // Hand-drawn slight offset
+                const wobbleX = ((x * 7 + y * 13) % 5) - 2;
+                const wobbleY = ((x * 11 + y * 5) % 5) - 2;
+                ctx.arc(px + CELL_PX / 2 + wobbleX, py + CELL_PX / 2 + wobbleY, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+              }
+            }
+          } else {
+            // Unclaimed cell grid line
+            ctx.strokeStyle = 'rgba(180, 205, 235, 0.45)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(px, py, CELL_PX, CELL_PX);
+          }
+
+          // Capital Star icon
+          if (cell.isCapital) {
+            drawCapitalStar(px + CELL_PX / 2, py + CELL_PX / 2, cell.owner);
+          }
+
+          // Building Doodles
+          if (cell.building) {
+            drawBuildingDoodle(cell.building, px, py);
+          }
+
+          // Unit Doodles
+          if (cell.unit) {
+            drawUnitDoodle(cell.unit, px, py);
+          }
+        }
+      }
+
+      // Outer notebook sheet border
+      ctx.strokeStyle = '#2b4c7e';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(0, 0, N * CELL_PX, N * CELL_PX);
+    }
+
+    // Capital Star Doodle
+    function drawCapitalStar(cx, cy, ownerId) {
+      const owner = Game.players.find(p => p.id === ownerId);
+      ctx.save();
+      ctx.fillStyle = owner ? owner.color : '#eab308';
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const spikes = 5;
+      const outerRadius = 10;
+      const innerRadius = 4.5;
+      let rot = Math.PI / 2 * 3;
+      const step = Math.PI / spikes;
+
+      for (let i = 0; i < spikes; i++) {
+        let x = cx + Math.cos(rot) * outerRadius;
+        let y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Hand-drawn Building icons
+    function drawBuildingDoodle(type, px, py) {
+      ctx.save();
+      ctx.strokeStyle = '#2d3748';
+      ctx.lineWidth = 1.8;
+      ctx.lineCap = 'round';
+
+      if (type === 'farm') {
+        // Diagonal hatching / wheat stalk
+        for (let i = 6; i < CELL_PX - 4; i += 6) {
+          ctx.beginPath();
+          ctx.moveTo(px + i, py + CELL_PX - 6);
+          ctx.lineTo(px + i + 8, py + 6);
+          ctx.stroke();
+        }
+      } else if (type === 'factory') {
+        // Factory chimneys with smoke puffs
+        ctx.beginPath();
+        ctx.moveTo(px + 6, py + CELL_PX - 6);
+        ctx.lineTo(px + 6, py + 12);
+        ctx.lineTo(px + 12, py + 12);
+        ctx.lineTo(px + 12, py + 18);
+        ctx.lineTo(px + 18, py + 10);
+        ctx.lineTo(px + 24, py + 10);
+        ctx.lineTo(px + 24, py + CELL_PX - 6);
+        ctx.stroke();
+        // Smoke puff
+        ctx.beginPath();
+        ctx.arc(px + 9, py + 8, 2, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (type === 'lab') {
+        // Flask / Beaker
+        ctx.beginPath();
+        ctx.moveTo(px + 13, py + 8);
+        ctx.lineTo(px + 19, py + 8);
+        ctx.moveTo(px + 14, py + 8);
+        ctx.lineTo(px + 14, py + 15);
+        ctx.lineTo(px + 8, py + CELL_PX - 8);
+        ctx.lineTo(px + 24, py + CELL_PX - 8);
+        ctx.lineTo(px + 18, py + 15);
+        ctx.lineTo(px + 18, py + 8);
+        ctx.stroke();
+      } else if (type === 'temple') {
+        // Sun icon
+        ctx.beginPath();
+        ctx.arc(px + CELL_PX / 2, py + CELL_PX / 2, 6, 0, Math.PI * 2);
+        ctx.stroke();
+        // Sun rays
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+          ctx.beginPath();
+          ctx.moveTo(px + CELL_PX / 2 + Math.cos(a) * 7.5, py + CELL_PX / 2 + Math.sin(a) * 7.5);
+          ctx.lineTo(px + CELL_PX / 2 + Math.cos(a) * 11, py + CELL_PX / 2 + Math.sin(a) * 11);
+          ctx.stroke();
+        }
+      } else if (type === 'barracks') {
+        // Crossed swords / tent
+        ctx.beginPath();
+        ctx.moveTo(px + 6, py + 26);
+        ctx.lineTo(px + 26, py + 6);
+        ctx.moveTo(px + 6, py + 6);
+        ctx.lineTo(px + 26, py + 26);
+        ctx.stroke();
+      } else if (type === 'fortress') {
+        // Castle tower with crenellations
+        ctx.beginPath();
+        ctx.moveTo(px + 8, py + 26);
+        ctx.lineTo(px + 8, py + 10);
+        ctx.lineTo(px + 12, py + 10);
+        ctx.lineTo(px + 12, py + 14);
+        ctx.lineTo(px + 16, py + 14);
+        ctx.lineTo(px + 16, py + 10);
+        ctx.lineTo(px + 20, py + 10);
+        ctx.lineTo(px + 20, py + 14);
+        ctx.lineTo(px + 24, py + 14);
+        ctx.lineTo(px + 24, py + 26);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Hand-drawn Unit Soldier / General
+    function drawUnitDoodle(unit, px, py) {
+      const owner = Game.players.find(p => p.id === unit.owner);
+      ctx.save();
+      const cx = px + CELL_PX / 2;
+      const cy = py + CELL_PX / 2;
+
+      // Unit badge / shield background
+      ctx.fillStyle = owner ? owner.color : '#444';
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 1.8;
+
+      if (unit.general) {
+        // General: Star or Crown badge
+        ctx.beginPath();
+        ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Star inside
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⭐', cx, cy);
+      } else {
+        // Soldier with shield and sword
+        ctx.beginPath();
+        ctx.roundRect(cx - 9, cy - 9, 18, 18, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⚔️', cx, cy);
+      }
+
+      // Small Health Bar underneath
+      const hpPct = Math.max(0, unit.hp / unit.maxHp);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillRect(px + 4, py + CELL_PX - 5, CELL_PX - 8, 3.5);
+      ctx.fillStyle = hpPct > 0.4 ? '#22c55e' : '#ef4444';
+      ctx.fillRect(px + 4, py + CELL_PX - 5, (CELL_PX - 8) * hpPct, 3.5);
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(px + 4, py + CELL_PX - 5, CELL_PX - 8, 3.5);
+
+      // Has moved indicator
+      if (unit.hasMoved) {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath();
+        ctx.arc(px + CELL_PX - 6, py + 6, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    // Selection & Colonization Ghost Highlights
+    function drawSelectionHighlights() {
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+
+      // Colonize hover / preview
+      if (Game.currentAction === 'colonize' && Game.selectedCell) {
+        const cx = Game.selectedCell.x;
+        const cy = Game.selectedCell.y;
+        ctx.fillStyle = 'rgba(37, 99, 235, 0.25)';
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const gx = cx + dx;
+            const gy = cy + dy;
+            if (gx >= 0 && gx < Game.mapSize && gy >= 0 && gy < Game.mapSize) {
+              ctx.fillRect(gx * CELL_PX, gy * CELL_PX, CELL_PX, CELL_PX);
+              ctx.strokeRect(gx * CELL_PX, gy * CELL_PX, CELL_PX, CELL_PX);
+            }
+          }
+        }
+        ctx.setLineDash([]);
+      }
+
+      // Selected Unit reachable tiles (Adjacent 4 tiles)
+      if (Game.selectedUnit && !Game.selectedUnit.hasMoved) {
+        const u = Game.selectedUnit;
+        const neighbors = [
+          { x: u.x + 1, y: u.y },
+          { x: u.x - 1, y: u.y },
+          { x: u.x, y: u.y + 1 },
+          { x: u.x, y: u.y - 1 }
+        ];
+
+        neighbors.forEach(n => {
+          if (n.x >= 0 && n.x < Game.mapSize && n.y >= 0 && n.y < Game.mapSize) {
+            const targetCell = Game.grid[n.y][n.x];
+            ctx.fillStyle = (targetCell.unit && targetCell.unit.owner !== curPlayer.id)
+              ? 'rgba(239, 68, 68, 0.35)' // Enemy attack
+              : 'rgba(34, 197, 94, 0.25)'; // Move
+
+            ctx.fillRect(n.x * CELL_PX, n.y * CELL_PX, CELL_PX, CELL_PX);
+            ctx.strokeStyle = (targetCell.unit && targetCell.unit.owner !== curPlayer.id) ? '#dc2626' : '#16a34a';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(n.x * CELL_PX, n.y * CELL_PX, CELL_PX, CELL_PX);
+          }
+        });
+      }
+
+      // Selected Cell Ring
+      if (Game.selectedCell) {
+        ctx.strokeStyle = '#d94343';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(
+          Game.selectedCell.x * CELL_PX - 1,
+          Game.selectedCell.y * CELL_PX - 1,
+          CELL_PX + 2,
+          CELL_PX + 2
+        );
+      }
+    }
+
+    /* =====================================================================
+       7. TURN & ECONOMY CALCULATIONS
+       ===================================================================== */
+    function getPlayerStats(player) {
+      let cellCount = 0;
+      let farmCount = 0;
+      let factoryCount = 0;
+      let labCount = 0;
+      let templeCount = 0;
+      let barracksCount = 0;
+      let fortressCount = 0;
+      let units = [];
+
+      for (let y = 0; y < Game.mapSize; y++) {
+        for (let x = 0; x < Game.mapSize; x++) {
+          const cell = Game.grid[y][x];
+          if (cell.owner === player.id) {
+            cellCount++;
+            if (cell.building === 'farm') farmCount++;
+            if (cell.building === 'factory') factoryCount++;
+            if (cell.building === 'lab') labCount++;
+            if (cell.building === 'temple') templeCount++;
+            if (cell.building === 'barracks') barracksCount++;
+            if (cell.building === 'fortress') fortressCount++;
+          }
+          if (cell.unit && cell.unit.owner === player.id) {
+            units.push(cell.unit);
+          }
+        }
+      }
+
+      // Economy rules:
+      // Population = cellCount. Each cell gives +1 tax.
+      // Farm feeds up to 10 population. If population > farmCount * 10, famine drops tax by 50%!
+      const farmCapacity = farmCount * 10;
+      const hasFamine = cellCount > farmCapacity && cellCount > 5;
+      const rawIncome = hasFamine ? Math.floor(cellCount * 0.5) : cellCount;
+
+      // Upkeep: -1 gold per building & unit
+      const totalBuildings = farmCount + factoryCount + labCount + templeCount + barracksCount + fortressCount;
+      const totalUpkeep = totalBuildings + units.length;
+      const balance = rawIncome - totalUpkeep;
+
+      // Science level: 1 + labCount (capped at 6)
+      const scienceLvl = Math.min(6, 1 + labCount);
+
+      return {
+        cellCount,
+        farmCount,
+        factoryCount,
+        labCount,
+        templeCount,
+        barracksCount,
+        fortressCount,
+        unitsCount: units.length,
+        rawIncome,
+        totalUpkeep,
+        balance,
+        hasFamine,
+        scienceLvl
+      };
+    }
+
+    function updateHUD() {
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+      if (!curPlayer) return;
+
+      const stats = getPlayerStats(curPlayer);
+      curPlayer.scienceLevel = stats.scienceLvl;
+
+      // Top bar elements
+      document.getElementById('current-player-name').innerText = `${curPlayer.flag} ${curPlayer.name}`;
+      document.getElementById('current-player-badge').style.backgroundColor = curPlayer.color;
+      document.getElementById('turn-round-counter').innerText = `(Раунд ${Game.turnRound})`;
+
+      document.getElementById('hud-gold').innerText = curPlayer.gold;
+      const balEl = document.getElementById('hud-balance');
+      balEl.innerText = (stats.balance >= 0 ? '+' : '') + stats.balance;
+      balEl.style.color = stats.balance >= 0 ? '#15803d' : '#b91c1c';
+
+      document.getElementById('hud-pop').innerText = stats.cellCount;
+      const farmHud = document.getElementById('hud-farms');
+      farmHud.innerText = `${stats.farmCount} (на ${stats.farmCount * 10} жит.)`;
+      if (stats.hasFamine) {
+        farmHud.innerHTML += ' <span style="color:#dc2626;" title="Голод! Доход снижен">⚠️</span>';
+      }
+
+      document.getElementById('hud-factories').innerText = `${stats.factoryCount} (на ${stats.factoryCount * 10})`;
+      document.getElementById('hud-science').innerText = `Ур. ${stats.scienceLvl} / 6`;
+
+      // Stickers
+      document.getElementById('stk-flag').innerText = curPlayer.flag;
+      document.getElementById('stk-name').innerText = curPlayer.name;
+      document.getElementById('stk-cells').innerText = `${stats.cellCount} клеток`;
+      document.getElementById('stk-mil-lvl').innerText = `${stats.barracksCount} ⚔️ / ${stats.fortressCount} 🛡️`;
+      document.getElementById('stk-army-count').innerText = stats.unitsCount;
+
+      // Religion
+      document.getElementById('stk-rel-name').innerText = curPlayer.religion.name;
+      document.getElementById('stk-rel-auth').innerText = `${curPlayer.religion.authority} / 100`;
+      document.getElementById('stk-rel-followers').innerText = stats.cellCount;
+      document.getElementById('stk-rel-temples').innerText = stats.templeCount;
+
+      // Button states
+      const canRecruit = stats.barracksCount >= 1 && stats.fortressCount >= 1;
+      const btnRecruit = document.getElementById('btn-recruit');
+      btnRecruit.disabled = !canRecruit || curPlayer.gold < 12;
+      btnRecruit.title = canRecruit ? "Нанять солдата за 12 монет" : "Требуется 1 Казарма и 1 Крепость!";
+
+      document.getElementById('btn-recruit-general').disabled = curPlayer.gold < 20;
+      document.getElementById('btn-colonize').disabled = curPlayer.gold < 10;
+    }
+
+    /* =====================================================================
+       8. COLONIZATION & BUILDING ACTIONS
+       ===================================================================== */
+    function toggleMode(mode) {
+      if (Game.currentAction === mode) {
+        Game.currentAction = null;
+        showToast('Режим отменен');
+      } else {
+        Game.currentAction = mode;
+        if (mode === 'colonize') {
+          showToast('Выберите внешнюю границу для колонизации (3×3 за 10🪙)');
+        } else if (mode === 'build') {
+          openBuildModal();
+        }
+      }
+    }
+
+    function performColonize(targetX, targetY) {
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+      if (curPlayer.gold < 10) {
+        showToast('Недостаточно золота для колонизации (нужно 10 🪙)!');
+        return;
+      }
+
+      // Check if target area touches any owned border
+      let touchesBorder = false;
+      const N = Game.mapSize;
+
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const gx = targetX + dx;
+          const gy = targetY + dy;
+          if (gx >= 0 && gx < N && gy >= 0 && gy < N) {
+            // Check neighbors of (gx, gy)
+            const neighbors = [
+              { x: gx + 1, y: gy }, { x: gx - 1, y: gy },
+              { x: gx, y: gy + 1 }, { x: gx, y: gy - 1 }
+            ];
+            for (let nb of neighbors) {
+              if (nb.x >= 0 && nb.x < N && nb.y >= 0 && nb.y < N) {
+                if (Game.grid[nb.y][nb.x].owner === curPlayer.id) {
+                  touchesBorder = true;
+                  break;
+                }
+              }
+            }
+          }
+        }
+        if (touchesBorder) break;
+      }
+
+      if (!touchesBorder) {
+        showToast('Колония должна примыкать к вашей границе!');
+        return;
+      }
+
+      // Claim 3x3 territory
+      let claimedCount = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const gx = targetX + dx;
+          const gy = targetY + dy;
+          if (gx >= 0 && gx < N && gy >= 0 && gy < N) {
+            const cell = Game.grid[gy][gx];
+            // Don't overwrite other player capital
+            if (!cell.isCapital) {
+              cell.owner = curPlayer.id;
+              claimedCount++;
+            }
+          }
+        }
+      }
+
+      curPlayer.gold -= 10;
+      Game.currentAction = null;
+      playPencilSound();
+      showToast(`Новые земли присоединены (+${claimedCount} клеток)!`);
+      updateHUD();
+    }
+
+    /* Build Modal & Execution */
+    function openBuildModal() {
+      document.getElementById('modal-build').style.display = 'flex';
+    }
+
+    function closeBuildModal() {
+      document.getElementById('modal-build').style.display = 'none';
+      Game.currentAction = null;
+    }
+
+    function selectBuildingToPlace(bType) {
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+      const cfg = BUILDING_TYPES[bType];
+      if (curPlayer.gold < cfg.cost) {
+        showToast(`Недостаточно золота для ${cfg.name} (нужно ${cfg.cost} 🪙)!`);
+        return;
+      }
+      Game.buildingToPlace = bType;
+      Game.currentAction = 'build';
+      closeBuildModal();
+      showToast(`Кликните по свободной клетке вашей державы для возведения ${cfg.name}`);
+    }
+
+    function performBuild(cell) {
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+      if (cell.owner !== curPlayer.id) {
+        showToast('Можно строить только на своей территории!');
+        return;
+      }
+      if (cell.building) {
+        showToast('На этой клетке уже есть постройка!');
+        return;
+      }
+      if (cell.isCapital) {
+        showToast('В клетке столицы нельзя возводить обычные здания!');
+        return;
+      }
+
+      const bType = Game.buildingToPlace;
+      const cfg = BUILDING_TYPES[bType];
+      if (curPlayer.gold < cfg.cost) {
+        showToast('Недостаточно золота!');
+        return;
+      }
+
+      cell.building = bType;
+      curPlayer.gold -= cfg.cost;
+      Game.currentAction = null;
+      Game.buildingToPlace = null;
+      playPencilSound();
+      showToast(`${cfg.name} успешно построена!`);
+      updateHUD();
+    }
+
+    /* Unit Recruitment */
+    function recruitUnit() {
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+      const stats = getPlayerStats(curPlayer);
+      if (stats.barracksCount < 1 || stats.fortressCount < 1) {
+        showToast('Для найма солдата требуется минимум 1 Казарма и 1 Крепость!');
+        return;
+      }
+      if (curPlayer.gold < 12) {
+        showToast('Нужно 12 золота для найма!');
+        return;
+      }
+
+      // Spawn soldier at capital or first free owned cell
+      const spawnCell = findFreeOwnedCell(curPlayer);
+      if (!spawnCell) {
+        showToast('Нет свободных клеток для размещения солдата!');
+        return;
+      }
+
+      const unitStats = getUnitStatsByScience(curPlayer.scienceLevel);
+      spawnCell.unit = {
+        id: Math.random().toString(36).substr(2, 9),
+        owner: curPlayer.id,
+        type: 'soldier',
+        general: false,
+        x: spawnCell.x,
+        y: spawnCell.y,
+        hp: unitStats.hp,
+        maxHp: unitStats.hp,
+        attack: unitStats.attack,
+        armor: unitStats.armor,
+        dodge: unitStats.dodgeChance,
+        hasMoved: true
+      };
+
+      curPlayer.gold -= 12;
+      playPencilSound();
+      showToast('Солдат-мечник готов к бою!');
+      updateHUD();
+    }
+
+    function recruitGeneral() {
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+      if (curPlayer.gold < 20) {
+        showToast('Нужно 20 золота для найма генерала!');
+        return;
+      }
+
+      const spawnCell = findFreeOwnedCell(curPlayer);
+      if (!spawnCell) {
+        showToast('Нет свободных клеток для генерала!');
+        return;
+      }
+
+      const unitStats = getUnitStatsByScience(curPlayer.scienceLevel);
+      spawnCell.unit = {
+        id: Math.random().toString(36).substr(2, 9),
+        owner: curPlayer.id,
+        type: 'general',
+        general: true,
+        x: spawnCell.x,
+        y: spawnCell.y,
+        hp: unitStats.hp + 2,
+        maxHp: unitStats.hp + 2,
+        attack: unitStats.attack + 1,
+        armor: unitStats.armor + 1,
+        dodge: unitStats.dodgeChance,
+        hasMoved: true
+      };
+
+      curPlayer.gold -= 20;
+      playPencilSound();
+      showToast('Генерал вступил в строй! Дает навык переброса кости!');
+      updateHUD();
+    }
+
+    function openOrderRecruit() {
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+      if (curPlayer.religion.authority < 15) {
+        showToast('Недостаточно авторитета веры (нужно 15)!');
+        return;
+      }
+      const spawnCell = findFreeOwnedCell(curPlayer);
+      if (!spawnCell) {
+        showToast('Нет свободных клеток для дружины Ордена!');
+        return;
+      }
+
+      curPlayer.religion.authority -= 15;
+      const unitStats = getUnitStatsByScience(curPlayer.scienceLevel);
+      spawnCell.unit = {
+        id: Math.random().toString(36).substr(2, 9),
+        owner: curPlayer.id,
+        type: 'order',
+        general: false,
+        x: spawnCell.x,
+        y: spawnCell.y,
+        hp: unitStats.hp + 1,
+        maxHp: unitStats.hp + 1,
+        attack: unitStats.attack + 1,
+        armor: unitStats.armor,
+        dodge: Math.min(5, unitStats.dodgeChance + 1),
+        hasMoved: true
+      };
+      playPencilSound();
+      showToast('Монастырская дружина Ордена призвана под знамёна!');
+      updateHUD();
+    }
+
+    function findFreeOwnedCell(player) {
+      // Prefer capital cell if empty
+      const capCell = Game.grid[player.capitalY][player.capitalX];
+      if (capCell.owner === player.id && !capCell.unit) return capCell;
+
+      for (let y = 0; y < Game.mapSize; y++) {
+        for (let x = 0; x < Game.mapSize; x++) {
+          const c = Game.grid[y][x];
+          if (c.owner === player.id && !c.unit) {
+            return c;
+          }
+        }
+      }
+      return null;
+    }
+
+    /* =====================================================================
+       9. COMBAT DUEL ENGINE WITH ANIMATED D6 DICE
+       ===================================================================== */
+    let Combat = {
+      attacker: null,
+      defender: null,
+      targetCell: null,
+      turn: 'attacker', // who is rolling / striking
+      isRolling: false,
+      hasUsedReroll: false,
+      autoResolve: false
     };
 
-    // Старт игры при загрузке
-    initGame();
+    function initiateCombat(attackerUnit, defenderUnit, targetCell) {
+      Combat.attacker = attackerUnit;
+      Combat.defender = defenderUnit;
+      Combat.targetCell = targetCell;
+      Combat.turn = (attackerUnit.initiative >= defenderUnit.initiative) ? 'attacker' : 'defender';
+      Combat.isRolling = false;
+      Combat.hasUsedReroll = false;
+      Combat.autoResolve = false;
+
+      const attOwner = Game.players.find(p => p.id === attackerUnit.owner);
+      const defOwner = Game.players.find(p => p.id === defenderUnit.owner);
+
+      document.getElementById('combat-att-name').innerText = `${attOwner.flag} ${attackerUnit.general ? '⭐ Генерал' : 'Мечник'}`;
+      document.getElementById('combat-def-name').innerText = `${defOwner.flag} ${defenderUnit.general ? '⭐ Генерал' : 'Мечник'}`;
+
+      document.getElementById('combat-att-stats').innerText = `Атк: ${attackerUnit.attack} | Броня: ${attackerUnit.armor} | Уворот: ${attackerUnit.dodge}/6`;
+      document.getElementById('combat-def-stats').innerText = `Атк: ${defenderUnit.attack} | Броня: ${defenderUnit.armor} | Уворот: ${defenderUnit.dodge}/6`;
+
+      updateCombatHP();
+
+      const log = document.getElementById('combat-log');
+      log.innerHTML = `<div>Начало дуэли! Первый удар наносит: <b>${Combat.turn === 'attacker' ? 'Атакующий' : 'Защитник'}</b></div>`;
+
+      // General badge
+      const hasGeneral = attackerUnit.general || defenderUnit.general;
+      document.getElementById('general-skill-badge').style.display = hasGeneral ? 'block' : 'none';
+      document.getElementById('btn-reroll').disabled = false;
+
+      document.getElementById('btn-combat-step').style.display = 'inline-flex';
+      document.getElementById('btn-combat-auto').style.display = 'inline-flex';
+      document.getElementById('btn-combat-close').style.display = 'none';
+
+      document.getElementById('modal-combat').style.display = 'flex';
+      renderDiceFace(1);
+    }
+
+    function updateCombatHP() {
+      const att = Combat.attacker;
+      const def = Combat.defender;
+
+      document.getElementById('combat-att-hp').innerText = `${att.hp}/${att.maxHp}`;
+      document.getElementById('combat-def-hp').innerText = `${def.hp}/${def.maxHp}`;
+
+      document.getElementById('combat-att-hp-fill').style.width = Math.max(0, (att.hp / att.maxHp) * 100) + '%';
+      document.getElementById('combat-def-hp-fill').style.width = Math.max(0, (def.hp / def.maxHp) * 100) + '%';
+    }
+
+    function renderDiceFace(val) {
+      const dice = document.getElementById('combat-dice');
+      for (let i = 1; i <= 9; i++) {
+        document.getElementById(`pip-${i}`).style.visibility = 'hidden';
+      }
+
+      // D6 pips:
+      // 1: 5
+      // 2: 1, 9
+      // 3: 1, 5, 9
+      // 4: 1, 3, 7, 9
+      // 5: 1, 3, 5, 7, 9
+      // 6: 1, 3, 4, 6, 7, 9
+      const patterns = {
+        1: [5],
+        2: [1, 9],
+        3: [1, 5, 9],
+        4: [1, 3, 7, 9],
+        5: [1, 3, 5, 7, 9],
+        6: [1, 3, 4, 6, 7, 9]
+      };
+
+      (patterns[val] || [5]).forEach(idx => {
+        const pip = document.getElementById(`pip-${idx}`);
+        if (pip) pip.style.visibility = 'visible';
+      });
+    }
+
+    function combatStepNext() {
+      if (Combat.isRolling) return;
+      Combat.isRolling = true;
+
+      const diceEl = document.getElementById('combat-dice');
+      diceEl.classList.add('dice-rolling');
+      playDiceSound();
+
+      setTimeout(() => {
+        diceEl.classList.remove('dice-rolling');
+        const roll = Math.floor(1 + Math.random() * 6);
+        renderDiceFace(roll);
+        resolveRound(roll);
+        Combat.isRolling = false;
+      }, 500);
+    }
+
+    function resolveRound(roll) {
+      const isAttStriking = Combat.turn === 'attacker';
+      const striker = isAttStriking ? Combat.attacker : Combat.defender;
+      const target = isAttStriking ? Combat.defender : Combat.attacker;
+      const log = document.getElementById('combat-log');
+
+      // Check target's dodge threshold
+      const dodged = (roll <= target.dodge);
+
+      if (dodged) {
+        log.innerHTML += `<div style="color:#2563eb;">🎲 Выпало <b>${roll}</b>! ${isAttStriking ? 'Защитник' : 'Атакующий'} ловко <b>УКЛОНИЛСЯ</b> от удара!</div>`;
+      } else {
+        // Damage formula: Math.max(1, striker.attack - target.armor)
+        const damage = Math.max(1, striker.attack - target.armor);
+        target.hp -= damage;
+        playHitSound();
+        log.innerHTML += `<div style="color:#dc2626;">🎲 Выпало <b>${roll}</b>! Удар успешен: нанесено <b>${damage}</b> урона (Броня поглотила ${target.armor})!</div>`;
+      }
+
+      log.scrollTop = log.scrollHeight;
+      updateCombatHP();
+
+      // Check death
+      if (Combat.attacker.hp <= 0 || Combat.defender.hp <= 0) {
+        finishCombat();
+        return;
+      }
+
+      // Switch striker
+      Combat.turn = isAttStriking ? 'defender' : 'attacker';
+
+      if (Combat.autoResolve) {
+        setTimeout(combatStepNext, 300);
+      }
+    }
+
+    function useGeneralReroll() {
+      if (Combat.hasUsedReroll) {
+        showToast('Переброс уже использован!');
+        return;
+      }
+      Combat.hasUsedReroll = true;
+      document.getElementById('btn-reroll').disabled = true;
+      showToast('Генерал приказал перебросить кость!');
+      combatStepNext();
+    }
+
+    function rollCombatManual() {
+      if (!Combat.isRolling && document.getElementById('btn-combat-step').style.display !== 'none') {
+        combatStepNext();
+      }
+    }
+
+    function combatAutoResolve() {
+      Combat.autoResolve = true;
+      combatStepNext();
+    }
+
+    function finishCombat() {
+      const log = document.getElementById('combat-log');
+      const attWon = Combat.defender.hp <= 0;
+
+      document.getElementById('btn-combat-step').style.display = 'none';
+      document.getElementById('btn-combat-auto').style.display = 'none';
+      document.getElementById('btn-combat-close').style.display = 'inline-flex';
+
+      const cell = Combat.targetCell;
+      const curPlayer = Game.players.find(p => p.id === Combat.attacker.owner);
+      const defPlayer = Game.players.find(p => p.id === Combat.defender.owner);
+
+      if (attWon) {
+        log.innerHTML += `<div style="font-weight:bold; color:#15803d; margin-top:6px;">🏆 Атакующий победил! Территория захвачена!</div>`;
+        playVictoryChime();
+        // Remove defender unit
+        cell.unit = Combat.attacker;
+        const oldCell = Game.grid[Combat.attacker.y][Combat.attacker.x];
+        oldCell.unit = null;
+        Combat.attacker.x = cell.x;
+        Combat.attacker.y = cell.y;
+        Combat.attacker.hasMoved = true;
+        // Territory capture
+        cell.owner = curPlayer.id;
+
+        // Religion penalty on defender
+        defPlayer.religion.authority = Math.max(0, defPlayer.religion.authority - 10);
+      } else {
+        log.innerHTML += `<div style="font-weight:bold; color:#dc2626; margin-top:6px;">🛡️ Защитник устоял! Атакующий отряд разбит!</div>`;
+        const oldCell = Game.grid[Combat.attacker.y][Combat.attacker.x];
+        oldCell.unit = null; // attacker died
+      }
+      log.scrollTop = log.scrollHeight;
+      updateHUD();
+    }
+
+    function closeCombatModal() {
+      document.getElementById('modal-combat').style.display = 'none';
+      checkVictoryCondition();
+    }
+
+    /* =====================================================================
+       10. TURN TRANSITION & ARTIFICIAL INTELLIGENCE (AI)
+       ===================================================================== */
+    function onEndTurnClick() {
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+      if (curPlayer.type !== 'human') return;
+
+      endTurn();
+    }
+
+    function endTurn() {
+      const curPlayer = Game.players[Game.currentPlayerIdx];
+
+      // 1. Economic tally for current player
+      const stats = getPlayerStats(curPlayer);
+      curPlayer.gold += stats.balance;
+      if (curPlayer.gold < 0) curPlayer.gold = 0;
+
+      // Temple faith gain
+      curPlayer.religion.authority = Math.min(100, curPlayer.religion.authority + stats.templeCount * 5);
+      // Religion Schism check
+      if (curPlayer.religion.authority < 20) {
+        showToast(`⚡ Раскол веры в державе ${curPlayer.name}! Падение морали!`);
+      }
+
+      // Reset unit moved flags
+      for (let y = 0; y < Game.mapSize; y++) {
+        for (let x = 0; x < Game.mapSize; x++) {
+          const u = Game.grid[y][x].unit;
+          if (u && u.owner === curPlayer.id) {
+            u.hasMoved = false;
+          }
+        }
+      }
+
+      // Advance to next active player
+      let nextIdx = (Game.currentPlayerIdx + 1) % Game.players.length;
+      if (nextIdx === 0) {
+        Game.turnRound++;
+      }
+      Game.currentPlayerIdx = nextIdx;
+
+      updateHUD();
+      checkVictoryCondition();
+
+      const nextPlayer = Game.players[Game.currentPlayerIdx];
+      showToast(`Ход передаётся: ${nextPlayer.flag} ${nextPlayer.name}`);
+
+      // If multiplayer, broadcast state
+      if (Game.mode === 'network' && Game.isHost) {
+        sendNetMessage({ type: 'SYNC_TURN', state: exportGameState() });
+      }
+
+      checkAITurn();
+    }
+
+    /* AI Decision Routine */
+    function checkAITurn() {
+      const player = Game.players[Game.currentPlayerIdx];
+      if (!player.alive) {
+        endTurn();
+        return;
+      }
+
+      if (player.type === 'ai_aggro' || player.type === 'ai_eco') {
+        setTimeout(() => {
+          runAILogic(player);
+          endTurn();
+        }, 600);
+      }
+    }
+
+    function runAILogic(ai) {
+      const stats = getPlayerStats(ai);
+
+      // 1. Need food? Build Farm
+      if (stats.cellCount > stats.farmCount * 10 && ai.gold >= 8) {
+        const freeCell = findFreeOwnedCell(ai);
+        if (freeCell && !freeCell.isCapital) {
+          freeCell.building = 'farm';
+          ai.gold -= 8;
+        }
+      }
+
+      // 2. Need factories for economic goods?
+      if (stats.cellCount > stats.factoryCount * 10 && ai.gold >= 10) {
+        const freeCell = findFreeOwnedCell(ai);
+        if (freeCell && !freeCell.isCapital) {
+          freeCell.building = 'factory';
+          ai.gold -= 10;
+        }
+      }
+
+      // 3. Build Barracks & Fortress if lacking
+      if (stats.barracksCount < 1 && ai.gold >= 12) {
+        const freeCell = findFreeOwnedCell(ai);
+        if (freeCell && !freeCell.isCapital) {
+          freeCell.building = 'barracks';
+          ai.gold -= 12;
+        }
+      }
+      if (stats.fortressCount < 1 && ai.gold >= 14) {
+        const freeCell = findFreeOwnedCell(ai);
+        if (freeCell && !freeCell.isCapital) {
+          freeCell.building = 'fortress';
+          ai.gold -= 14;
+        }
+      }
+
+      // 4. Lab for Science (especially Aggro or Eco)
+      if (stats.labCount < 3 && ai.gold >= 15) {
+        const freeCell = findFreeOwnedCell(ai);
+        if (freeCell && !freeCell.isCapital) {
+          freeCell.building = 'lab';
+          ai.gold -= 15;
+        }
+      }
+
+      // 5. Expand territory with colonization if has surplus gold
+      if (ai.gold >= 15) {
+        // Find border cell
+        const borderCell = findBorderCell(ai);
+        if (borderCell) {
+          performColonize(borderCell.x, borderCell.y);
+        }
+      }
+
+      // 6. Recruit military
+      if (stats.barracksCount >= 1 && stats.fortressCount >= 1 && ai.gold >= 12) {
+        const spawnCell = findFreeOwnedCell(ai);
+        if (spawnCell) {
+          const uStats = getUnitStatsByScience(ai.scienceLevel);
+          spawnCell.unit = {
+            id: Math.random().toString(36).substr(2, 9),
+            owner: ai.id,
+            type: 'soldier',
+            general: false,
+            x: spawnCell.x,
+            y: spawnCell.y,
+            hp: uStats.hp,
+            maxHp: uStats.hp,
+            attack: uStats.attack,
+            armor: uStats.armor,
+            dodge: uStats.dodgeChance,
+            hasMoved: false
+          };
+          ai.gold -= 12;
+        }
+      }
+
+      // 7. Unit movement & smart attack
+      for (let y = 0; y < Game.mapSize; y++) {
+        for (let x = 0; x < Game.mapSize; x++) {
+          const u = Game.grid[y][x].unit;
+          if (u && u.owner === ai.id && !u.hasMoved) {
+            // Find target enemy or empty border tile
+            aiMoveUnit(u);
+          }
+        }
+      }
+    }
+
+    function findBorderCell(player) {
+      const N = Game.mapSize;
+      for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+          if (Game.grid[y][x].owner === player.id) {
+            const neighbors = [
+              { x: x + 1, y }, { x: x - 1, y },
+              { x, y: y + 1 }, { x, y: y - 1 }
+            ];
+            for (let nb of neighbors) {
+              if (nb.x >= 0 && nb.x < N && nb.y >= 0 && nb.y < N && Game.grid[nb.y][nb.x].owner !== player.id) {
+                return nb;
+              }
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function aiMoveUnit(unit) {
+      const N = Game.mapSize;
+      const neighbors = [
+        { x: unit.x + 1, y: unit.y },
+        { x: unit.x - 1, y: unit.y },
+        { x: unit.x, y: unit.y + 1 },
+        { x: unit.x, y: unit.y - 1 }
+      ];
+
+      // Prioritize adjacent enemy units if AI has equal or higher HP
+      for (let nb of neighbors) {
+        if (nb.x >= 0 && nb.x < N && nb.y >= 0 && nb.y < N) {
+          const target = Game.grid[nb.y][nb.x];
+          if (target.unit && target.unit.owner !== unit.owner) {
+            // Attack!
+            unit.hasMoved = true;
+            // Quick combat resolution for AI
+            const dmg = Math.max(1, unit.attack - target.unit.armor);
+            target.unit.hp -= dmg;
+            if (target.unit.hp <= 0) {
+              target.unit = unit;
+              Game.grid[unit.y][unit.x].unit = null;
+              unit.x = nb.x;
+              unit.y = nb.y;
+              target.owner = unit.owner;
+            }
+            return;
+          }
+        }
+      }
+
+      // Else move toward enemy territory
+      for (let nb of neighbors) {
+        if (nb.x >= 0 && nb.x < N && nb.y >= 0 && nb.y < N) {
+          const target = Game.grid[nb.y][nb.x];
+          if (!target.unit) {
+            Game.grid[unit.y][unit.x].unit = null;
+            target.unit = unit;
+            unit.x = nb.x;
+            unit.y = nb.y;
+            unit.hasMoved = true;
+            if (target.owner !== unit.owner) {
+              target.owner = unit.owner;
+            }
+            return;
+          }
+        }
+      }
+    }
+
+    /* Victory Condition */
+    function checkVictoryCondition() {
+      // Check if capitals are owned by their original player
+      const activePlayers = [];
+      Game.players.forEach(p => {
+        const cap = Game.grid[p.capitalY][p.capitalX];
+        if (cap.owner === p.id) {
+          activePlayers.push(p);
+        } else {
+          p.alive = false;
+        }
+      });
+
+      if (activePlayers.length === 1 && !Game.isGameOver) {
+        Game.isGameOver = true;
+        const winner = activePlayers[0];
+        document.getElementById('gameover-winner-text').innerText = `🎉 ${winner.flag} ${winner.name} одержала полную победу в тетради!`;
+        document.getElementById('modal-gameover').style.display = 'flex';
+        playVictoryChime();
+      }
+    }
+
+    /* Toast Helper */
+    let toastTimeout = null;
+    function showToast(msg) {
+      const t = document.getElementById('game-toast');
+      t.innerText = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        t.classList.remove('show');
+      }, 2600);
+    }
+
+    /* Multiplayer State Sync (WebRTC) */
+    function exportGameState() {
+      return {
+        mapSize: Game.mapSize,
+        turnRound: Game.turnRound,
+        currentPlayerIdx: Game.currentPlayerIdx,
+        players: Game.players,
+        grid: Game.grid
+      };
+    }
+
+    function loadGameStateFromHost(state) {
+      Game.mapSize = state.mapSize;
+      Game.turnRound = state.turnRound;
+      Game.currentPlayerIdx = state.currentPlayerIdx;
+      Game.players = state.players;
+      Game.grid = state.grid;
+
+      document.getElementById('screen-lobby').style.display = 'none';
+      document.getElementById('screen-game').style.display = 'block';
+      initCanvas();
+      updateHUD();
+      showToast('Синхронизировано с хостом!');
+    }
+
+    function applySyncedTurnState(state) {
+      Game.turnRound = state.turnRound;
+      Game.currentPlayerIdx = state.currentPlayerIdx;
+      Game.players = state.players;
+      Game.grid = state.grid;
+      updateHUD();
+      showToast(`Ход игрока: ${Game.players[Game.currentPlayerIdx].name}`);
+    }
+
+    /* Start in Lobby */
+    window.addEventListener('load', () => {
+      renderLobbySlots();
+    });
   </script>
 </body>
 </html>
