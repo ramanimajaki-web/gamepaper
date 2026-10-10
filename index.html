@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Захват Мира: Война на Тетрадном Листе</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #eef2f7;
+      color: #2c3e50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Верхняя панель */
+    header {
+      width: 100%;
+      max-width: 1100px;
+      padding: 12px 20px;
+      background: #ffffff;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      border-radius: 0 0 16px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .title-area h1 {
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #1a365d;
+    }
+
+    .stats {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .stat-badge {
+      background: #f1f5f9;
+      padding: 6px 14px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-val {
+      color: #2563eb;
+      font-size: 17px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+    }
+
+    button:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    button.secondary {
+      background: #64748b;
+      box-shadow: 0 2px 6px rgba(100,116,139,0.25);
+    }
+    button.secondary:hover {
+      background: #475569;
+    }
+
+    /* Контейнер поля: Тетрадный двойной лист */
+    .sheet-wrapper {
+      margin: 20px auto;
+      padding: 10px;
+      max-width: 98vw;
+      overflow: auto;
+      display: flex;
+      justify-content: center;
+    }
+
+    .notebook-sheet {
+      position: relative;
+      background-color: #fafbfc;
+      /* Тетрадная клетка */
+      background-image: 
+        linear-gradient(to right, rgba(99, 133, 175, 0.2) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(99, 133, 175, 0.2) 1px, transparent 1px);
+      background-size: 26px 26px;
+      border: 2px solid #b0c4de;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12), inset 0 0 15px rgba(0,0,0,0.03);
+      border-radius: 8px;
+      padding: 4px;
+    }
+
+    /* Линия сгиба двойного листа по центру */
+    .notebook-sheet::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 4px;
+      transform: translateX(-50%);
+      background: linear-gradient(to right, rgba(0,0,0,0.06), rgba(0,0,0,0.18), rgba(0,0,0,0.06));
+      pointer-events: none;
+      box-shadow: 0 0 6px rgba(0,0,0,0.15);
+    }
+
+    /* Игровая сетка */
+    #grid {
+      display: grid;
+      gap: 1px;
+      background: rgba(180, 195, 215, 0.4);
+    }
+
+    .cell {
+      width: 25px;
+      height: 25px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.15s, transform 0.1s;
+      border-radius: 2px;
+      color: #333;
+    }
+
+    .cell:hover {
+      filter: brightness(0.9);
+      transform: scale(1.08);
+      z-index: 10;
+    }
+
+    /* Фракции / Цвета */
+    .cell.neutral {
+      background: #fdfefe;
+      color: #94a3b8;
+    }
+    .cell.neutral:hover {
+      background: #e2e8f0;
+    }
+
+    /* Игрок (Синие) */
+    .cell.p-player {
+      background: #3b82f6;
+      color: #ffffff;
+      box-shadow: inset 0 0 4px rgba(0,0,0,0.2);
+    }
+
+    /* Враги */
+    .cell.p-red {
+      background: #ef4444;
+      color: #ffffff;
+    }
+    .cell.p-green {
+      background: #10b981;
+      color: #ffffff;
+    }
+    .cell.p-yellow {
+      background: #f59e0b;
+      color: #ffffff;
+    }
+
+    /* Подсветка доступных для атаки клеток */
+    .cell.can-attack {
+      outline: 2px dashed #e11d48;
+      animation: pulse 1s infinite alternate;
+      cursor: crosshair;
+    }
+
+    @keyframes pulse {
+      from { transform: scale(0.97); }
+      to { transform: scale(1.05); }
+    }
+
+    /* Звезда столицы */
+    .capital-star {
+      font-size: 15px;
+      filter: drop-shadow(0 0 2px rgba(0,0,0,0.6));
+    }
+
+    /* Лог событий */
+    .log-box {
+      width: 100%;
+      max-width: 1100px;
+      background: white;
+      border-radius: 12px;
+      padding: 12px 20px;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      border: 1px solid #e2e8f0;
+    }
+    .log-box h3 {
+      font-size: 14px;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+    .log-messages {
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+    .log-msg {
+      color: #334155;
+    }
+    .log-msg.important {
+      font-weight: bold;
+      color: #dc2626;
+    }
+    .log-msg.victory {
+      font-weight: bold;
+      color: #16a34a;
+    }
+
+    /* Инструкция */
+    .hint-bar {
+      font-size: 13px;
+      color: #475569;
+      background: #e0f2fe;
+      border: 1px solid #bae6fd;
+      padding: 8px 16px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      max-width: 1100px;
+      width: 100%;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-area">
+      <h1>🗺️ Война на Тетрадном Листе</h1>
+    </div>
+
+    <div class="stats">
+      <div class="stat-badge">
+        <span>⚔️ Армия:</span>
+        <span class="stat-val" id="army-val">50</span>
+      </div>
+      <div class="stat-badge">
+        <span>📈 Доход:</span>
+        <span class="stat-val" id="income-val">+25/сек</span>
+      </div>
+      <div class="stat-badge">
+        <span>🏰 Территория:</span>
+        <span class="stat-val" id="land-val">25</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="toggle-war">⏸️ Пауза</button>
+      <button class="secondary" id="restart-btn">🔄 Заново</button>
+    </div>
+  </header>
+
+  <div class="sheet-wrapper">
+    <div class="notebook-sheet">
+      <div id="grid"></div>
+    </div>
+  </div>
+
+  <div class="hint-bar">
+    💡 <b>Правила войны:</b> Вы — <b style="color:#2563eb;">Синяя держава</b>. Ваша столица (5x5) со звездой ⭐ в центре. Кликайте по соседним клеткам врагов или пустых земель, чтобы отправить армию на захват! Захватите вражескую ⭐ столицу, чтобы подчинить всю страну!
+  </div>
+
+  <div class="log-box">
+    <h3>Хроники сражений:</h3>
+    <div class="log-messages" id="logs"></div>
+  </div>
+
+  <script>
+    // --- ПАРАМЕТРЫ МИРА И КАРТЫ (Двойной лист: 34 x 26 клеток) ---
+    const COLS = 34;
+    const ROWS = 26;
+    const CAPITAL_SIZE = 5; // Столица 5 на 5
+
+    // Державы
+    const FACTIONS = {
+      EMPTY: { id: 'empty', name: 'Нейтральные земли', class: 'neutral', color: '#f8fafc' },
+      PLAYER: { id: 'player', name: 'Синяя Держава (Вы)', class: 'p-player', color: '#3b82f6' },
+      RED: { id: 'red', name: 'Красная Империя', class: 'p-red', color: '#ef4444' },
+      GREEN: { id: 'green', name: 'Зелёный Альянс', class: 'p-green', color: '#10b981' },
+      YELLOW: { id: 'yellow', name: 'Жёлтое Ханство', class: 'p-yellow', color: '#f59e0b' }
+    };
+
+    let gridData = [];
+    let isPaused = false;
+    let army = 50;
+
+    // Вражеские боты с их армиями
+    let bots = {
+      red: { army: 50, alive: true, faction: FACTIONS.RED },
+      green: { army: 50, alive: true, faction: FACTIONS.GREEN },
+      yellow: { army: 50, alive: true, faction: FACTIONS.YELLOW }
+    };
+
+    const gridEl = document.getElementById('grid');
+    const armyValEl = document.getElementById('army-val');
+    const incomeValEl = document.getElementById('income-val');
+    const landValEl = document.getElementById('land-val');
+    const toggleWarBtn = document.getElementById('toggle-war');
+    const restartBtn = document.getElementById('restart-btn');
+    const logsEl = document.getElementById('logs');
+
+    // Простые звуковые эффекты через Web Audio API
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playBeep(freq, type = 'sine', duration = 0.1) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {}
+    }
+
+    function addLog(text, type = '') {
+      const msg = document.createElement('div');
+      msg.className = 'log-msg ' + type;
+      const time = new Date().toLocaleTimeString().slice(3);
+      msg.innerHTML = `[${time}] ${text}`;
+      logsEl.prepend(msg);
+    }
+
+    // Инициализация карты
+    function initGame() {
+      gridData = [];
+      gridEl.innerHTML = '';
+      gridEl.style.gridTemplateColumns = `repeat(${COLS}, 25px)`;
+      gridEl.style.gridTemplateRows = `repeat(${ROWS}, 25px)`;
+
+      army = 50;
+      bots.red.army = 50; bots.red.alive = true;
+      bots.green.army = 50; bots.green.alive = true;
+      bots.yellow.army = 50; bots.yellow.alive = true;
+
+      // Заполнение пустыми клетками
+      for (let r = 0; r < ROWS; r++) {
+        gridData[r] = [];
+        for (let c = 0; c < COLS; c++) {
+          gridData[r][c] = {
+            r, c,
+            owner: FACTIONS.EMPTY.id,
+            isCapitalCenter: false,
+            defense: 5 // Прочность нейтральной клетки
+          };
+        }
+      }
+
+      // Спавн 4 столиц (5х5 каждая):
+      // 1. Игрок: в левом нижнем квадранте
+      spawnCountry(18, 4, FACTIONS.PLAYER.id);
+      // 2. Красные: правый верхний квадрант
+      spawnCountry(3, 24, FACTIONS.RED.id);
+      // 3. Зелёные: левый верхний квадрант
+      spawnCountry(3, 4, FACTIONS.GREEN.id);
+      // 4. Жёлтые: правый нижний квадрант
+      spawnCountry(18, 24, FACTIONS.YELLOW.id);
+
+      renderFullGrid();
+      updatePlayerStats();
+      addLog('⚔️ Началась битва за тетрадный мир! Ваша столица 5х5 на западе.', 'victory');
+    }
+
+    // Спавн страны с территорией 5х5 и столицей в центре
+    function spawnCountry(startR, startC, factionId) {
+      const centerR = startR + Math.floor(CAPITAL_SIZE / 2);
+      const centerC = startC + Math.floor(CAPITAL_SIZE / 2);
+
+      for (let r = startR; r < startR + CAPITAL_SIZE; r++) {
+        for (let c = startC; c < startC + CAPITAL_SIZE; c++) {
+          if (r < ROWS && c < COLS) {
+            gridData[r][c].owner = factionId;
+            gridData[r][c].defense = 15;
+            if (r === centerR && c === centerC) {
+              gridData[r][c].isCapitalCenter = true;
+              gridData[r][c].defense = 60; // Столичная клетка крепче!
+            }
+          }
+        }
+      }
+    }
+
+    // Прорисовка всей сетки
+    function renderFullGrid() {
+      gridEl.innerHTML = '';
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cellData = gridData[r][c];
+          const cellEl = document.createElement('div');
+          cellEl.className = 'cell';
+          cellEl.id = `cell-${r}-${c}`;
+          
+          cellEl.onclick = () => onCellClick(r, c);
+          gridEl.appendChild(cellEl);
+          updateCellDisplay(r, c);
+        }
+      }
+    }
+
+    // Обновление отображения клетки
+    function updateCellDisplay(r, c) {
+      const cellData = gridData[r][c];
+      const cellEl = document.getElementById(`cell-${r}-${c}`);
+      if (!cellEl) return;
+
+      // Сброс классов
+      cellEl.className = 'cell';
+      
+      const faction = Object.values(FACTIONS).find(f => f.id === cellData.owner);
+      if (faction) {
+        cellEl.classList.add(faction.class);
+      }
+
+      if (cellData.isCapitalCenter) {
+        cellEl.innerHTML = '<span class="capital-star">⭐</span>';
+      } else {
+        cellEl.innerHTML = '';
+      }
+
+      // Подсветка доступных для атаки игроком
+      if (cellData.owner !== FACTIONS.PLAYER.id && isNeighborToOwner(r, c, FACTIONS.PLAYER.id)) {
+        cellEl.classList.add('can-attack');
+      }
+    }
+
+    // Проверка соседства по вертикали/горизонтали/диагонали
+    function isNeighborToOwner(r, c, ownerId) {
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+            if (gridData[nr][nc].owner === ownerId) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    // Клик по клетке игроком
+    function onCellClick(r, c) {
+      if (isPaused) return;
+      const target = gridData[r][c];
+
+      // Если кликнули по своей клетке — укрепляем
+      if (target.owner === FACTIONS.PLAYER.id) {
+        if (army >= 10) {
+          army -= 10;
+          target.defense += 15;
+          playBeep(440, 'triangle', 0.08);
+          addLog(`Укреплена оборона клетки [${r}, ${c}]! Оборона: ${target.defense}`);
+          updatePlayerStats();
+        }
+        return;
+      }
+
+      // Если клетка не соседствует с нашей землей — нельзя напасть
+      if (!isNeighborToOwner(r, c, FACTIONS.PLAYER.id)) {
+        playBeep(180, 'sawtooth', 0.1);
+        addLog('❌ Нельзя атаковать! Клетка не граничит с вашей державой.');
+        return;
+      }
+
+      // АТАКА!
+      const attackPower = Math.min(army, 25); // отправляем пачку до 25 войск за клик
+      if (attackPower < 5) {
+        playBeep(200, 'sawtooth', 0.1);
+        addLog('⚠️ Недостаточно войск для атаки! Подождите прироста армии.');
+        return;
+      }
+
+      army -= attackPower;
+      target.defense -= attackPower;
+
+      if (target.defense <= 0) {
+        // Успешный захват клетки!
+        const prevOwner = target.owner;
+        const wasCapital = target.isCapitalCenter;
+
+        target.owner = FACTIONS.PLAYER.id;
+        target.defense = 12; // Базовая оборона новой земли
+        playBeep(650, 'square', 0.15);
+
+        if (wasCapital && prevOwner !== FACTIONS.EMPTY.id) {
+          // ЗАХВАТ СТОЛИЦЫ ВРАГА! Капитуляция всей фракции!
+          conquerFaction(prevOwner, FACTIONS.PLAYER.id);
+        } else {
+          addLog(`🚩 Вы захватили новую территорию!`);
+        }
+      } else {
+        playBeep(320, 'square', 0.1);
+        addLog(`⚔️ Бой за клетку! Вражеская оборона ослаблена до ${target.defense}`);
+      }
+
+      updateAllSurroundings();
+      updatePlayerStats();
+    }
+
+    // Капитуляция страны при падении столицы ⭐
+    function conquerFaction(loserId, winnerId) {
+      playBeep(880, 'triangle', 0.4);
+      let count = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (gridData[r][c].owner === loserId) {
+            gridData[r][c].owner = winnerId;
+            gridData[r][c].isCapitalCenter = false;
+            count++;
+          }
+        }
+      }
+      if (bots[loserId]) bots[loserId].alive = false;
+
+      const loserName = Object.values(FACTIONS).find(f => f.id === loserId)?.name || loserId;
+      addLog(`👑 СТОЛИЦА ПАЛА! ${loserName} капитулировала! Вам перешло ${count} земель!`, 'victory');
+      
+      checkVictory();
+    }
+
+    // Проверка победы игрока
+    function checkVictory() {
+      const remainingEnemies = Object.values(bots).filter(b => b.alive);
+      if (remainingEnemies.length === 0) {
+        playBeep(950, 'triangle', 0.6);
+        alert('🎉 ПОБЕДА! Вы объединили весь тетрадный мир под своими знамёнами!');
+        addLog('🏆 ПОЛНАЯ ПОБЕДА НАД ВСЕМИ СТРАНАМИ!', 'victory');
+      }
+    }
+
+    function updateAllSurroundings() {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          updateCellDisplay(r, c);
+        }
+      }
+    }
+
+    // Подсчет статистики игрока
+    function updatePlayerStats() {
+      let count = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (gridData[r][c].owner === FACTIONS.PLAYER.id) count++;
+        }
+      }
+
+      const income = Math.max(5, Math.floor(count * 1.2));
+      armyValEl.textContent = army;
+      incomeValEl.textContent = `+${income}/сек`;
+      landValEl.textContent = count;
+    }
+
+    // Игровой цикл: прирост войск и действия ботов раз в секунду
+    setInterval(() => {
+      if (isPaused) return;
+
+      // 1. Прирост игрока
+      let playerCount = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (gridData[r][c].owner === FACTIONS.PLAYER.id) playerCount++;
+        }
+      }
+      army += Math.max(5, Math.floor(playerCount * 1.2));
+      updatePlayerStats();
+
+      // 2. Ход ИИ (Ботов)
+      Object.keys(bots).forEach(botKey => {
+        const bot = bots[botKey];
+        if (!bot.alive) return;
+
+        // Считаем земли бота
+        let botLands = [];
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            if (gridData[r][c].owner === botKey) {
+              botLands.push({r, c});
+            }
+          }
+        }
+
+        // Если бота стёрли
+        if (botLands.length === 0) {
+          bot.alive = false;
+          return;
+        }
+
+        // Прирост армии бота
+        bot.army += Math.max(4, Math.floor(botLands.length * 1.1));
+
+        // Бот ищет соседей для атаки
+        if (bot.army >= 20) {
+          const randomLand = botLands[Math.floor(Math.random() * botLands.length)];
+          const neighbors = [
+            {r: randomLand.r - 1, c: randomLand.c},
+            {r: randomLand.r + 1, c: randomLand.c},
+            {r: randomLand.r, c: randomLand.c - 1},
+            {r: randomLand.r, c: randomLand.c + 1}
+          ].filter(n => n.r >= 0 && n.r < ROWS && n.c >= 0 && n.c < COLS);
+
+          // Ищем чужую клетку для атаки
+          const target = neighbors.find(n => gridData[n.r][n.c].owner !== botKey);
+          if (target) {
+            const cell = gridData[target.r][target.c];
+            const force = Math.min(bot.army, 20);
+            bot.army -= force;
+            cell.defense -= force;
+
+            if (cell.defense <= 0) {
+              const prevOwner = cell.owner;
+              const wasCapital = cell.isCapitalCenter;
+              cell.owner = botKey;
+              cell.defense = 12;
+
+              if (prevOwner === FACTIONS.PLAYER.id) {
+                playBeep(140, 'sawtooth', 0.2);
+                addLog(`⚠️ Враг (${bot.faction.name}) отбил у вас клетку [${target.r}, ${target.c}]!`, 'important');
+                if (wasCapital) {
+                  alert('💀 Ваша столица захвачена врагом! Игра окончена.');
+                  initGame();
+                  return;
+                }
+              }
+
+              if (wasCapital && prevOwner !== FACTIONS.EMPTY.id && prevOwner !== FACTIONS.PLAYER.id) {
+                conquerFaction(prevOwner, botKey);
+              }
+            }
+          }
+        }
+      });
+
+      updateAllSurroundings();
+    }, 1000);
+
+    // Пауза
+    toggleWarBtn.onclick = () => {
+      isPaused = !isPaused;
+      toggleWarBtn.textContent = isPaused ? '▶️ Продолжить' : '⏸️ Пауза';
+    };
+
+    // Перезапуск
+    restartBtn.onclick = () => {
+      if (confirm('Начать войну заново?')) {
+        initGame();
+      }
+    };
+
+    // Старт игры при загрузке
+    initGame();
+  </script>
+</body>
+</html>
